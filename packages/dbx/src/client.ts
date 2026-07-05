@@ -100,6 +100,20 @@ export class DbxClient {
     return this.request("GET", `/api/2.2/jobs/runs/get?run_id=${runId}`);
   }
 
+  // ---- Files (UC volumes) ----
+
+  async filePut(volumePath: string, content: string): Promise<void> {
+    const token = await this.tokens.getToken();
+    const res = await fetch(`${this.host}/api/2.0/fs/files${volumePath}?overwrite=true`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+      body: content,
+    });
+    if (!res.ok && res.status !== 204) {
+      throw new Error(`file upload ${volumePath} -> ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    }
+  }
+
   // ---- Serving (raw invocation; the LLM adapter uses the OpenAI-compat route) ----
 
   async servingInvoke<T>(endpoint: string, payload: unknown): Promise<T> {

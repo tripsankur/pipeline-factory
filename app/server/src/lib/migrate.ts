@@ -13,6 +13,7 @@ export async function migrateRegistry(
   dbx: DbxClient,
   warehouseId: string,
   cfg: RegistryConfig,
+  runnerPrincipal = "",
 ): Promise<void> {
   const [schemaStmt, ...tableStmts] = registryDdl(cfg);
   try {
@@ -32,5 +33,25 @@ export async function migrateRegistry(
   }
   for (const stmt of tableStmts) {
     await dbx.sql(stmt, warehouseId);
+  }
+
+  // Runner jobs execute as a different principal than the app SP. Grant that
+  // principal read/write on the registry tables this SP owns (ADR-006). Grants
+  // on tables the SP does NOT own fail harmlessly — those tables are already
+  // accessible to their owner, which in dev is the runner principal itself.
+  if (runnerPrincipal) {
+    const tableNames = tableStmts
+      .map((s) => /IF NOT EXISTS [^ ]*`([a-z_]+)`/.exec(s)?.[1])
+      .filter((n): n is string => Boolean(n));
+    for (const table of tableNames) {
+      try {
+        await dbx.sql(
+          `GRANT SELECT, MODIFY ON TABLE \`${cfg.catalog}\`.\`${cfg.schema}\`.\`${table}\` TO \`${runnerPrincipal}\``,
+          warehouseId,
+        );
+      } catch {
+        // not the owner of this table — grant not needed from this principal
+      }
+    }
   }
 }

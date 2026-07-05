@@ -197,14 +197,15 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
         </div>
       </Card>
 
-      {/* runner notice — honest, not mocked */}
-      <Card style={{ borderColor: "var(--pf-warn)", background: "var(--pf-warn-soft)", padding: "12px 18px" }}>
-        <span style={{ fontSize: 12.5, color: "var(--pf-tsec)" }}>
-          <strong style={{ color: "var(--pf-warn)" }}>Runner steps deferred:</strong> deploy / pipeline run /
-          tests / recon execute as Databricks runner jobs (milestone M4). The PR carries render + mapping
-          evidence today; recon results attach automatically once runners land.
-        </span>
-      </Card>
+      {/* shown only when runner jobs are not wired (e.g. local dev without bundle jobs) */}
+      {Object.values(steps).some((s) => s.status === "deferred") && (
+        <Card style={{ borderColor: "var(--pf-warn)", background: "var(--pf-warn-soft)", padding: "12px 18px" }}>
+          <span style={{ fontSize: 12.5, color: "var(--pf-tsec)" }}>
+            <strong style={{ color: "var(--pf-warn)" }}>Runner steps deferred:</strong> runner job ids are
+            not configured in this environment — pipeline run / tests / recon were skipped, never simulated.
+          </span>
+        </Card>
+      )}
     </div>
   );
 }

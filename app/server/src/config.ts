@@ -13,6 +13,15 @@ const EnvSchema = z.object({
   PF_GITHUB_REPO: z.string().default(""),
   PF_TARGET: z.string().default("dev"),
   MAX_FIX_ITERATIONS: z.coerce.number().int().min(1).default(3),
+  /** runner job ids (injected via app resources; empty = runner steps deferred) */
+  PF_JOB_PIPELINE_RUNNER: z.string().default(""),
+  PF_JOB_RECON_RUNNER: z.string().default(""),
+  /**
+   * Principal the runner jobs execute as (bundle deployer in dev mode). When set,
+   * the boot migration grants it SELECT+MODIFY on the registry tables the app SP
+   * owns — runners must read staged artifacts and write results (ADR-006).
+   */
+  PF_RUNNER_PRINCIPAL: z.string().default(""),
   /** local-dev identity stub when Apps forwarded headers are absent */
   PF_DEV_USER_EMAIL: z.string().default(""),
 });

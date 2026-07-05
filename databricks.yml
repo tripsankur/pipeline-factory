@@ -19,6 +19,69 @@ variables:
     default: "databricks-llama-4-maverick"
 
 resources:
+  jobs:
+    pipeline_runner:
+      name: "pf-pipeline-runner"
+      description: "Executes rendered SQL artifacts from the ctl artifacts volume + evaluates expectations"
+      tags:
+        generated_by: pipeline_factory_infra
+      parameters:
+        - name: spec_id
+          default: ""
+        - name: spec_version
+          default: "1"
+        - name: run_id
+          default: ""
+      tasks:
+        - task_key: run
+          spark_python_task:
+            python_file: ./runners/pipeline_runner/pipeline_runner.py
+            parameters:
+              - "--spec-id"
+              - "{{job.parameters.spec_id}}"
+              - "--spec-version"
+              - "{{job.parameters.spec_version}}"
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+
+    recon_runner:
+      name: "pf-recon-runner"
+      description: "Count/key/attribute reconciliation driven by the spec compare config"
+      tags:
+        generated_by: pipeline_factory_infra
+      parameters:
+        - name: spec_id
+          default: ""
+        - name: spec_version
+          default: "1"
+        - name: run_id
+          default: ""
+        - name: recon_id
+          default: ""
+      tasks:
+        - task_key: run
+          spark_python_task:
+            python_file: ./runners/recon_runner/recon_runner.py
+            parameters:
+              - "--spec-id"
+              - "{{job.parameters.spec_id}}"
+              - "--spec-version"
+              - "{{job.parameters.spec_version}}"
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--recon-id"
+              - "{{job.parameters.recon_id}}"
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"
+
   apps:
     pipeline_factory:
       name: "pipeline-factory"
@@ -33,6 +96,14 @@ resources:
           serving_endpoint:
             name: ${var.llm_endpoint}
             permission: "CAN_QUERY"
+        - name: "pipeline-runner-job"
+          job:
+            id: ${resources.jobs.pipeline_runner.id}
+            permission: "CAN_MANAGE_RUN"
+        - name: "recon-runner-job"
+          job:
+            id: ${resources.jobs.recon_runner.id}
+            permission: "CAN_MANAGE_RUN"
 
 targets:
   dev:

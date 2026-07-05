@@ -10,3 +10,9 @@ env:
     value: "ctl"
   - name: PF_TARGET
     value: "dev"
+  - name: PF_JOB_PIPELINE_RUNNER
+    valueFrom: pipeline-runner-job
+  - name: PF_JOB_RECON_RUNNER
+    valueFrom: recon-runner-job
+  - name: PF_RUNNER_PRINCIPAL
+    value: "ankurtripathi.cs@gmail.com"

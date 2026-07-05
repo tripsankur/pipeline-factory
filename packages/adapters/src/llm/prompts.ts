@@ -19,6 +19,9 @@ Rules you must follow:
 - "rationale" is one sentence a human reviewer reads to approve or fix the row. Be specific.
 - value_map: only for enumerated code translations explicitly supported by the contract.
 - expectations: propose null checks for key columns and range/enum checks the contract implies.
+  Each "constraint" MUST be a complete boolean SQL predicate over TARGET column names
+  (e.g. "sf_account_id IS NOT NULL", "balance >= 0") — never a fragment like "IS NOT NULL"
+  and never source column names. "name" is a slug describing the check, not a column.
 - Names are literal: use catalog/schema/table/column names exactly as given; never normalize
   hyphens/underscores or case.`;
 

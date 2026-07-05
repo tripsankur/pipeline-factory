@@ -56,7 +56,7 @@ if (existsSync(publicDir)) {
 
 // boot migration — stateless app, registry is source of truth (constraint #6)
 try {
-  await migrateRegistry(dbx, cfg.DATABRICKS_WAREHOUSE_ID, cfg.registry);
+  await migrateRegistry(dbx, cfg.DATABRICKS_WAREHOUSE_ID, cfg.registry, cfg.PF_RUNNER_PRINCIPAL);
   app.log.info("registry migration complete");
 } catch (err) {
   // keep serving; /api/settings/connections will surface the failure

@@ -108,5 +108,14 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       user_email STRING,
       created_at TIMESTAMP NOT NULL
     ) ${TAG_PROPS}`,
+
+    `CREATE TABLE IF NOT EXISTS ${t("staged_artifacts")} (
+      spec_id STRING NOT NULL,
+      spec_version INT NOT NULL,
+      path STRING NOT NULL,
+      content STRING NOT NULL,
+      sha256 STRING,
+      staged_at TIMESTAMP NOT NULL
+    ) ${TAG_PROPS}`,
   ];
 }

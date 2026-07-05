@@ -16,6 +16,7 @@ describe("registryDdl", () => {
       "recon_record_diff",
       "llm_calls",
       "feature_events",
+      "staged_artifacts",
     ];
     for (const t of tables) {
       expect(ddl.some((s) => s.includes(`\`${t}\``))).toBe(true);
