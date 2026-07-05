@@ -1,0 +1,49 @@
+# Reference implementation of the Pipeline Factory CI/CD contract
+# (docs/CICD_CONTRACT.md). Any CI system can do the same two steps.
+name: factory-contract-ci
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-manifest:
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'feat/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify artifact checksums against factory.manifest.yml
+        run: |
+          test -f factory.manifest.yml || { echo "no manifest — not a factory branch"; exit 0; }
+          python3 - <<'EOF'
+          import hashlib, sys, re
+          entries, path = [], None
+          for line in open("factory.manifest.yml"):
+              m = re.match(r"\s+- path: (.+)", line)
+              if m: path = m.group(1).strip()
+              m = re.match(r"\s+sha256: (.+)", line)
+              if m and path:
+                  entries.append((path, m.group(1).strip())); path = None
+          bad = []
+          for p, want in entries:
+              got = hashlib.sha256(open(p, "rb").read()).hexdigest()
+              if got != want:
+                  bad.append((p, want, got))
+          if bad:
+              for p, w, g in bad:
+                  print(f"CHECKSUM MISMATCH {p}\n  manifest {w}\n  actual   {g}")
+              sys.exit(1)
+          print(f"all {len(entries)} artifact checksums verified")
+          EOF
+
+      - name: Run verify command from the manifest
+        run: |
+          if [ -f Makefile ] && grep -q '^verify:' Makefile; then
+            make verify
+          else
+            echo "no Makefile verify target in this repo yet — checksum verification passed"
+          fi
+
+  # Promotion (commands.deploy with a real target) happens AFTER merge and belongs
+  # to the consuming repo's own workflow — the factory never deploys to prod.

@@ -1,5 +1,6 @@
 export * from "./cicd/types.js";
 export * from "./cicd/mock.js";
+export * from "./cicd/github.js";
 export * from "./cicd/azure-devops.js";
 export * from "./cicd/gitlab.js";
 export * from "./contracts/types.js";

@@ -13,6 +13,7 @@ import { registerHealthRoutes } from "./routes/health.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerSpecRoutes } from "./routes/specs.js";
 import { registerRenderRoutes } from "./routes/render.js";
+import { registerBuildRoutes } from "./routes/build.js";
 
 const cfg = loadConfig();
 const app = Fastify({ logger: true, bodyLimit: 20 * 1024 * 1024 });
@@ -36,6 +37,7 @@ registerHealthRoutes(app);
 registerSettingsRoutes(app, dbx, cfg);
 registerSpecRoutes(app, registry, fmapi, cfg);
 registerRenderRoutes(app, registry);
+registerBuildRoutes(app, registry, dbx, cfg);
 
 // serve built client (dist/public next to the bundled server)
 const here = dirname(fileURLToPath(import.meta.url));

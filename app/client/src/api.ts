@@ -104,6 +104,10 @@ export const api = {
     id: string,
   ): Promise<{ branch: string; commit_message: string; files: RenderedFile[] }> =>
     json(await fetch(`/api/specs/${id}/artifacts`)),
+  build: async (
+    id: string,
+  ): Promise<{ run_id: string; branch: string; pr: { url: string; number: number }; adapter: string; files: string[] }> =>
+    json(await fetch(`/api/specs/${id}/build`, { method: "POST" })),
   featureClick: (id: string): void => {
     void fetch(`/api/features/${id}/click`, { method: "POST" });
   },
