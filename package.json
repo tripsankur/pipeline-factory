@@ -1,0 +1,22 @@
+{
+  "name": "pipeline-factory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @pf/server --filter @pf/client dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -b",
+    "bundle:app": "node scripts/bundle-app.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

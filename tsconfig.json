@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/dbx" },
+    { "path": "packages/adapters" },
+    { "path": "app/server" }
+  ]
+}

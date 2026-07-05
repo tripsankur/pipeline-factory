@@ -1,0 +1,7 @@
+packages:
+  - app/client
+  - app/server
+  - packages/*
+
+onlyBuiltDependencies:
+  - esbuild

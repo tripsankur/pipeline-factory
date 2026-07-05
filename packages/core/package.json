@@ -1,0 +1,21 @@
+{
+  "name": "@pf/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "nunjucks": "^3.2.4",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/nunjucks": "^3.2.6"
+  }
+}

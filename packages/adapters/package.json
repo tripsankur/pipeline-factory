@@ -1,0 +1,27 @@
+{
+  "name": "@pf/adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@pf/core": "workspace:*",
+    "@pf/dbx": "workspace:*",
+    "mammoth": "^1.8.0",
+    "octokit": "^4.0.0",
+    "openai": "^4.80.0",
+    "papaparse": "^5.4.1",
+    "zod": "^3.25.0",
+    "zod-to-json-schema": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.15"
+  }
+}

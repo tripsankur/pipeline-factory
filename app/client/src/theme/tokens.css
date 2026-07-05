@@ -1,0 +1,111 @@
+/*
+ * Pipeline Factory design tokens.
+ * Source of truth: docs/design/pipeline-factory.dc.json (Claude Design export
+ * "Pipeline Factory.dc.html", project d863f580-e3b4-418e-a2d5-271b8bcd7dfa).
+ * Dark-first; light mode via [data-theme="light"]; accent via [data-accent].
+ */
+
+:root {
+  /* dark (default) */
+  --pf-bg: #0a0e0f;
+  --pf-surf: #12181a;
+  --pf-surf2: #161d1f;
+  --pf-bd: #232b2d;
+  --pf-bd2: #33403f;
+  --pf-tpri: #e8efed;
+  --pf-tsec: #93a3a6;
+  --pf-tmut: #617073;
+  --pf-hover-bg: rgba(255, 255, 255, 0.035);
+  --pf-chip: #1b2325;
+  --pf-track: #232b2d;
+  --pf-code-bg: #0e1416;
+  --pf-input-bg: #0e1416;
+  --pf-log-bg: #0a0e0f;
+  --pf-toast-bg: #161d1f;
+  --pf-ok: #34d399;
+  --pf-warn: #fbbf24;
+  --pf-bad: #f87171;
+  --pf-run: #38bdf8;
+  --pf-violet: #a78bfa;
+
+  /* accent: teal (default) */
+  --pf-acc: #2dd4bf;
+  --pf-acc-tx: #04201c;
+
+  --pf-soft-alpha: 0.15;
+  --pf-acc-soft: rgba(45, 212, 191, var(--pf-soft-alpha));
+  --pf-ok-soft: rgba(52, 211, 153, var(--pf-soft-alpha));
+  --pf-warn-soft: rgba(251, 191, 36, var(--pf-soft-alpha));
+  --pf-bad-soft: rgba(248, 113, 113, var(--pf-soft-alpha));
+
+  --pf-font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --pf-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+[data-theme="light"] {
+  --pf-bg: #f5f7f7;
+  --pf-surf: #ffffff;
+  --pf-surf2: #f7f9f9;
+  --pf-bd: #e6ebeb;
+  --pf-bd2: #d2dada;
+  --pf-tpri: #0e1516;
+  --pf-tsec: #586668;
+  --pf-tmut: #8a9799;
+  --pf-hover-bg: rgba(14, 21, 22, 0.028);
+  --pf-chip: #eff3f3;
+  --pf-track: #e9eeee;
+  --pf-code-bg: #f5f7f7;
+  --pf-input-bg: #fbfcfc;
+  --pf-log-bg: #0c1213;
+  --pf-ok: #0f9d6e;
+  --pf-warn: #b4790a;
+  --pf-bad: #dc5a5a;
+  --pf-run: #0e82c4;
+
+  --pf-acc: #0e9e8a;
+  --pf-acc-tx: #ffffff;
+
+  --pf-soft-alpha: 0.12;
+  --pf-acc-soft: rgba(14, 158, 138, var(--pf-soft-alpha));
+  --pf-ok-soft: rgba(15, 157, 110, var(--pf-soft-alpha));
+  --pf-warn-soft: rgba(180, 121, 10, var(--pf-soft-alpha));
+  --pf-bad-soft: rgba(220, 90, 90, var(--pf-soft-alpha));
+}
+
+/* accents — dark values; light overrides below */
+[data-accent="blue"] { --pf-acc: #38bdf8; --pf-acc-tx: #041420; --pf-acc-soft: rgba(56, 189, 248, var(--pf-soft-alpha)); }
+[data-accent="indigo"] { --pf-acc: #818cf8; --pf-acc-tx: #0b0e33; --pf-acc-soft: rgba(129, 140, 248, var(--pf-soft-alpha)); }
+[data-accent="violet"] { --pf-acc: #a78bfa; --pf-acc-tx: #170a2e; --pf-acc-soft: rgba(167, 139, 250, var(--pf-soft-alpha)); }
+[data-accent="amber"] { --pf-acc: #fbbf24; --pf-acc-tx: #241701; --pf-acc-soft: rgba(251, 191, 36, var(--pf-soft-alpha)); }
+[data-accent="green"] { --pf-acc: #34d399; --pf-acc-tx: #04140f; --pf-acc-soft: rgba(52, 211, 153, var(--pf-soft-alpha)); }
+[data-accent="rose"] { --pf-acc: #fb7185; --pf-acc-tx: #2a0810; --pf-acc-soft: rgba(251, 113, 133, var(--pf-soft-alpha)); }
+
+[data-theme="light"][data-accent="blue"] { --pf-acc: #0e82c4; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(14, 130, 196, var(--pf-soft-alpha)); }
+[data-theme="light"][data-accent="indigo"] { --pf-acc: #4f52d6; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(79, 82, 214, var(--pf-soft-alpha)); }
+[data-theme="light"][data-accent="violet"] { --pf-acc: #7c5cd6; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(124, 92, 214, var(--pf-soft-alpha)); }
+[data-theme="light"][data-accent="amber"] { --pf-acc: #b4790a; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(180, 121, 10, var(--pf-soft-alpha)); }
+[data-theme="light"][data-accent="green"] { --pf-acc: #0f9d6e; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(15, 157, 110, var(--pf-soft-alpha)); }
+[data-theme="light"][data-accent="rose"] { --pf-acc: #d14d63; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(209, 77, 99, var(--pf-soft-alpha)); }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--pf-bg);
+  color: var(--pf-tpri);
+  font-family: var(--pf-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes pf_pulse { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
+@keyframes pf_blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes pf_spin { to { transform: rotate(360deg); } }
+@keyframes pf_slidein { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 144, 148, 0.35);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track { background: transparent; }
