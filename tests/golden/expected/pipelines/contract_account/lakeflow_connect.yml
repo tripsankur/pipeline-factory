@@ -1,0 +1,18 @@
+# generated_by: pipeline_factory
+# spec_id: spec-golden-001
+# spec_version: 1
+# DO NOT EDIT — rendered from the approved spec; changes belong in the spec.
+ingestion:
+  entity: contract_account
+  transport: lakeflow_connect
+  source:
+    system: aldm
+    object: CONTRACT_ACCOUNT
+  mode: incremental
+  cursor_column: updated_ts
+  destination:
+    table: workspace.bronze.aldm_contract_account
+  table_properties:
+    generated_by: pipeline_factory
+    spec_id: spec-golden-001
+    spec_version: "1"

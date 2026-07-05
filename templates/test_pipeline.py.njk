@@ -1,0 +1,28 @@
+# generated_by: {{ tag.generated_by }}
+# spec_id: {{ tag.spec_id }}
+# spec_version: {{ tag.spec_version }}
+# DO NOT EDIT — rendered from the approved spec; changes belong in the spec.
+"""Rendered smoke tests for the {{ spec.entity }} pipeline artifacts."""
+
+EXPECTED_TARGET_COLUMNS = [
+{% for col in spec.columns %}
+    {{ col.target | pyStr }},
+{% endfor %}
+]
+
+
+def test_target_columns_present(spark):
+    df = spark.table({{ spec.target.entity | pyStr }})
+    for col in EXPECTED_TARGET_COLUMNS:
+        assert col in df.columns, f"missing mapped column: {col}"
+
+
+def test_target_tagged(spark):
+    props = {
+        row.key: row.value
+        for row in spark.sql(
+            "SHOW TBLPROPERTIES {{ spec.target.entity }}"
+        ).collect()
+    }
+    assert props.get("generated_by") == {{ tag.generated_by | pyStr }}
+    assert props.get("spec_id") == {{ tag.spec_id | pyStr }}

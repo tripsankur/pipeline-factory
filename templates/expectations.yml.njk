@@ -1,0 +1,11 @@
+# generated_by: {{ tag.generated_by }}
+# spec_id: {{ tag.spec_id }}
+# spec_version: {{ tag.spec_version }}
+# DO NOT EDIT — rendered from the approved spec; changes belong in the spec.
+entity: {{ spec.entity }}
+expectations:
+{% for e in spec.expectations %}
+  - name: {{ e.name }}
+    constraint: {{ e.constraint | pyStr }}
+    action: {{ e.action }}
+{% endfor %}

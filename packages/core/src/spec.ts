@@ -36,14 +36,22 @@ export const ColumnMappingSchema = z.object({
    * `null` means straight passthrough of `name`.
    */
   transform: z.string().nullable().default(null),
-  /** enumerated value translation, applied when present */
-  value_map: z.array(ValueMapEntrySchema).default([]),
+  /** enumerated value translation, applied when present (LLMs emit null for "none") */
+  value_map: z
+    .array(ValueMapEntrySchema)
+    .nullish()
+    .transform((v) => v ?? []),
   /** LLM confidence in this mapping, 0..1 */
   confidence: ConfidenceSchema,
   /** LLM's reasoning for the mapping */
-  rationale: z.string().default(""),
+  rationale: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? ""),
   /** reconciliation behavior for this column */
-  compare: CompareSchema.default({ enabled: true, normalize: null, tolerance: null }),
+  compare: CompareSchema.nullish().transform(
+    (v) => v ?? { enabled: true, normalize: null, tolerance: null },
+  ),
 });
 
 export const ExpectationSchema = z.object({
@@ -88,12 +96,22 @@ export const SpecSchema = z.object({
   ingestion: IngestionSchema,
   crosswalk: CrosswalkSchema,
   columns: z.array(ColumnMappingSchema).min(1),
-  expectations: z.array(ExpectationSchema).default([]),
+  expectations: z
+    .array(ExpectationSchema)
+    .nullish()
+    .transform((v) => v ?? []),
   /** free-form evidence notes accumulated through the lifecycle */
   evidence: z.record(z.string(), z.unknown()).default({}),
 });
 
 export type Spec = z.infer<typeof SpecSchema>;
+
+/**
+ * LLM-facing spec schema: identical minus `evidence` (a free-form record the
+ * server owns — records/$refs are unsupported by FMAPI structured outputs).
+ */
+export const SpecLlmSchema = SpecSchema.omit({ evidence: true });
+export type SpecLlm = z.infer<typeof SpecLlmSchema>;
 export type ColumnMapping = z.infer<typeof ColumnMappingSchema>;
 export type Expectation = z.infer<typeof ExpectationSchema>;
 

@@ -27,6 +27,37 @@ export interface LlmCallMeta {
 
 export type LlmCallLogger = (meta: LlmCallMeta) => Promise<void> | void;
 
+/**
+ * FMAPI structured outputs reject JSON-Schema validation keywords (e.g.
+ * "string types do not support minLength"). Strip them — zod re-validates the
+ * real constraints at parse time, the wire schema only guides generation.
+ */
+const UNSUPPORTED_KEYWORDS = [
+  "minLength",
+  "maxLength",
+  "pattern",
+  "format",
+  "minItems",
+  "maxItems",
+  "minimum",
+  "maximum",
+  "multipleOf",
+  "default",
+] as const;
+
+export function sanitizeJsonSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(sanitizeJsonSchema);
+  if (node !== null && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) {
+      if ((UNSUPPORTED_KEYWORDS as readonly string[]).includes(k)) continue;
+      out[k] = sanitizeJsonSchema(v);
+    }
+    return out;
+  }
+  return node;
+}
+
 export class FmapiClient {
   constructor(
     private readonly cfg: FmapiConfig,
@@ -55,7 +86,9 @@ export class FmapiClient {
   }): Promise<z.infer<S>> {
     const started = Date.now();
     const client = await this.client();
-    const jsonSchema = zodToJsonSchema(opts.schema, { target: "openAi" });
+    const jsonSchema = sanitizeJsonSchema(
+      zodToJsonSchema(opts.schema, { target: "openAi", $refStrategy: "none" }),
+    );
     let responseText = "";
     let usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
     try {

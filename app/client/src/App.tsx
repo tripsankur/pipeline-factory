@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MAIN_NAV, LOCKED_NAV } from "./nav";
+import { api } from "./api";
+import Fleet from "./pages/Fleet";
+import Intake from "./pages/Intake";
+import Mapping from "./pages/Mapping";
+import Artifacts from "./pages/Artifacts";
+import { Card } from "./components/ui";
 
 interface ConnectionStatus {
   name: string;
@@ -8,7 +14,7 @@ interface ConnectionStatus {
   detail: string;
 }
 
-function useConnections() {
+function useConnections(enabled: boolean) {
   return useQuery({
     queryKey: ["connections"],
     queryFn: async (): Promise<{ connections: ConnectionStatus[] }> => {
@@ -17,6 +23,7 @@ function useConnections() {
       return r.json();
     },
     refetchInterval: 60_000,
+    enabled,
   });
 }
 
@@ -51,13 +58,19 @@ const S = {
 
 export default function App() {
   const [page, setPage] = useState("fleet");
+  const [activeSpecId, setActiveSpecId] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const connections = useConnections();
+  const connections = useConnections(page === "settings");
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     document.documentElement.dataset.theme = next;
+  };
+
+  const openLocked = (id: string) => {
+    api.featureClick(id);
+    setPage(id);
   };
 
   return (
@@ -112,7 +125,7 @@ export default function App() {
             Coming soon
           </div>
           {LOCKED_NAV.map((item) => (
-            <button key={item.id} style={S.navBtn(page === item.id, true)} onClick={() => setPage(item.id)}>
+            <button key={item.id} style={S.navBtn(page === item.id, true)} onClick={() => openLocked(item.id)}>
               {item.label}
               <span
                 style={{
@@ -138,21 +151,45 @@ export default function App() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, overflow: "auto", padding: 32 }}>
-        {LOCKED_NAV.some((n) => n.id === page) ? (
-          <ComingSoon id={page} />
-        ) : (
-          <div>
-            <h1 style={{ fontSize: 20, marginTop: 0 }}>
-              {MAIN_NAV.find((n) => n.id === page)?.label ?? page}
-            </h1>
-            {page === "settings" || page === "fleet" ? (
-              <ConnectionsPanel state={connections} />
-            ) : (
-              <p style={{ color: "var(--pf-tsec)" }}>Screen lands in the next milestone.</p>
-            )}
-          </div>
+      <main style={{ flex: 1, overflow: "auto", padding: 28 }}>
+        <h1 style={{ fontSize: 19, margin: "0 0 18px" }}>
+          {[...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page.replaceAll("_", " ")}
+        </h1>
+
+        {page === "fleet" && (
+          <Fleet
+            onOpenSpec={(id) => {
+              setActiveSpecId(id);
+              setPage("mapping");
+            }}
+          />
         )}
+        {page === "intake" && (
+          <Intake
+            onSpecCreated={(id) => {
+              setActiveSpecId(id);
+              setPage("mapping");
+            }}
+          />
+        )}
+        {page === "mapping" && (
+          <Mapping
+            specId={activeSpecId}
+            onApproved={(id) => {
+              setActiveSpecId(id);
+              setPage("evidence");
+            }}
+          />
+        )}
+        {page === "evidence" && <Artifacts specId={activeSpecId} />}
+        {page === "build" && (
+          <p style={{ color: "var(--pf-tsec)" }}>Build console lands with the runner milestone (M4).</p>
+        )}
+        {page === "history" && (
+          <p style={{ color: "var(--pf-tsec)" }}>Spec history & audit lands with M5.</p>
+        )}
+        {page === "settings" && <ConnectionsPanel state={connections} />}
+        {LOCKED_NAV.some((n) => n.id === page) && <ComingSoon id={page} />}
       </main>
     </div>
   );
@@ -197,15 +234,7 @@ function ConnectionsPanel({ state }: { state: ReturnType<typeof useConnections> 
 
 function ComingSoon({ id }: { id: string }) {
   return (
-    <div
-      style={{
-        maxWidth: 520,
-        background: "var(--pf-surf)",
-        border: "1px solid var(--pf-bd)",
-        borderRadius: 14,
-        padding: 28,
-      }}
-    >
+    <Card style={{ maxWidth: 520, padding: 28 }}>
       <div
         style={{
           display: "inline-block",
@@ -225,6 +254,6 @@ function ComingSoon({ id }: { id: string }) {
       <p style={{ color: "var(--pf-tsec)", fontSize: 13.5, lineHeight: 1.6 }}>
         This capability is on the roadmap. Your click was logged — it helps us prioritize.
       </p>
-    </div>
+    </Card>
   );
 }

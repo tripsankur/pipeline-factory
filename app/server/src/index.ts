@@ -3,18 +3,39 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { DbxClient } from "@pf/dbx";
+import fastifyMultipart from "@fastify/multipart";
+import { DbxClient, TokenProvider, authConfigFromEnv } from "@pf/dbx";
+import { FmapiClient } from "@pf/adapters";
 import { loadConfig } from "./config.js";
 import { migrateRegistry } from "./lib/migrate.js";
+import { RegistryClient } from "./lib/registry-client.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
+import { registerSpecRoutes } from "./routes/specs.js";
+import { registerRenderRoutes } from "./routes/render.js";
 
 const cfg = loadConfig();
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, bodyLimit: 20 * 1024 * 1024 });
 const dbx = new DbxClient();
+const registry = new RegistryClient(dbx, cfg.DATABRICKS_WAREHOUSE_ID, cfg.registry);
+
+const authCfg = authConfigFromEnv();
+const tokens = new TokenProvider(authCfg);
+const fmapi = new FmapiClient(
+  {
+    host: authCfg.host,
+    endpoint: cfg.PF_LLM_ENDPOINT,
+    apiKeyProvider: () => tokens.getToken(),
+  },
+  (meta) => registry.logLlmCall(meta, null).catch((err) => app.log.warn({ err }, "llm_calls insert failed")),
+);
+
+await app.register(fastifyMultipart, { limits: { fileSize: 15 * 1024 * 1024 } });
 
 registerHealthRoutes(app);
 registerSettingsRoutes(app, dbx, cfg);
+registerSpecRoutes(app, registry, fmapi, cfg);
+registerRenderRoutes(app, registry);
 
 // serve built client (dist/public next to the bundled server)
 const here = dirname(fileURLToPath(import.meta.url));

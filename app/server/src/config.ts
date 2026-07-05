@@ -5,7 +5,9 @@ const EnvSchema = z.object({
   DATABRICKS_APP_PORT: z.coerce.number().default(8000),
   DATABRICKS_HOST: z.string().min(1),
   DATABRICKS_WAREHOUSE_ID: z.string().min(1),
-  PF_LLM_ENDPOINT: z.string().default("databricks-claude-opus-4-8"),
+  // NOTE: Claude FMAPI endpoints exist in this workspace but are rate-limited to 0
+  // (trial workspace). Swap back via env when enabled — endpoint is config, not code.
+  PF_LLM_ENDPOINT: z.string().default("databricks-llama-4-maverick"),
   PF_CATALOG: z.string().default("workspace"),
   PF_SCHEMA: z.string().default("ctl"),
   PF_GITHUB_REPO: z.string().default(""),

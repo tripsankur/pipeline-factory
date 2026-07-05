@@ -1,0 +1,49 @@
+# Pipeline Factory — one bundle ships the whole product: app + runner jobs + registry.
+bundle:
+  name: pipeline-factory
+
+# dist/ is gitignored (build output) but the deploy artifact must ship it
+sync:
+  include:
+    - app/deploy/dist/**
+
+variables:
+  warehouse_id:
+    description: SQL warehouse for registry + connectivity checks
+    default: "7dd061ff3f16772e"
+  llm_endpoint:
+    description: FMAPI serving endpoint (config, never code — handoff §3)
+    # Claude endpoints are rate-limited to 0 in this trial workspace; use
+    # `--var llm_endpoint=databricks-claude-opus-4-8` once enabled.
+    default: "databricks-llama-4-maverick"
+
+resources:
+  apps:
+    pipeline_factory:
+      name: "pipeline-factory"
+      description: "Builds ingestion pipelines from natural-language interface contracts"
+      source_code_path: ./app/deploy
+      resources:
+        - name: "sql-warehouse"
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: "CAN_USE"
+        - name: "serving-endpoint"
+          serving_endpoint:
+            name: ${var.llm_endpoint}
+            permission: "CAN_QUERY"
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: https://dbc-5ff279f3-09b2.cloud.databricks.com
+
+  # Stub only. The app itself refuses any non-dev target (hard constraint #3);
+  # prod promotion belongs to customer CI after PR merge (docs/CICD_CONTRACT.md).
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-5ff279f3-09b2.cloud.databricks.com
+      root_path: /Workspace/pipeline-factory/prod-STUB-DO-NOT-DEPLOY

@@ -8,3 +8,4 @@ export * from "./contracts/docx.js";
 export * from "./contracts/confluence.js";
 export * from "./transport/types.js";
 export * from "./llm/fmapi.js";
+export * from "./llm/prompts.js";

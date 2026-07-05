@@ -1,0 +1,20 @@
+-- generated_by: {{ tag.generated_by }}
+-- spec_id: {{ tag.spec_id }}
+-- spec_version: {{ tag.spec_version }}
+-- DO NOT EDIT — rendered from the approved spec; changes belong in the spec.
+-- Legacy-shaped adapter view: exposes {{ spec.target.entity }} in the source shape
+-- so downstream consumers keep working during cutover.
+
+CREATE OR REPLACE VIEW {{ spec.target.entity }}_legacy_adapter
+TBLPROPERTIES (
+  'generated_by' = '{{ tag.generated_by }}',
+  'spec_id' = '{{ tag.spec_id }}',
+  'spec_version' = '{{ tag.spec_version }}'
+)
+AS
+SELECT
+{% for col in spec.columns %}
+  {{ col.target | sqlIdent }} AS {{ col.name | sqlIdent }}{% if not loop.last %},{% endif %}
+
+{% endfor %}
+FROM {{ spec.target.entity }}
