@@ -1,25 +1,26 @@
-/** Sidebar nav model — mirrors the Claude Design sidebar. Locked = coming soon. */
+/** Sidebar nav model — labels + SVG paths from the Claude Design source. */
 
 export interface NavItem {
   id: string;
   label: string;
+  icon: string;
   locked: boolean;
 }
 
 export const MAIN_NAV: NavItem[] = [
-  { id: "fleet", label: "Fleet dashboard", locked: false },
-  { id: "intake", label: "Contract intake", locked: false },
-  { id: "mapping", label: "Mapping review", locked: false },
-  { id: "build", label: "Build & test console", locked: false },
-  { id: "evidence", label: "PR evidence", locked: false },
-  { id: "history", label: "Spec history", locked: false },
-  { id: "settings", label: "Settings", locked: false },
+  { id: "fleet", label: "Fleet dashboard", icon: "M4 5h7v7H4zM13 5h7v4h-7zM13 13h7v6h-7zM4 15h7v4H4z", locked: false },
+  { id: "intake", label: "Contract intake", icon: "M12 16V4m0 0L8 8m4-4l4 4M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2", locked: false },
+  { id: "mapping", label: "Mapping review", icon: "M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6", locked: false },
+  { id: "build", label: "Build & test", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5", locked: false },
+  { id: "evidence", label: "PR evidence", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", locked: false },
+  { id: "history", label: "Spec history", icon: "M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z", locked: false },
+  { id: "settings", label: "Settings", icon: "M10.325 4.317a1.724 1.724 0 013.35 0 1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572 1.724 1.724 0 010 3.35 1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065 1.724 1.724 0 01-3.35 0 1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572 1.724 1.724 0 010-3.35 1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", locked: false },
 ];
 
 export const LOCKED_NAV: NavItem[] = [
-  { id: "confluence_intake", label: "Confluence intake", locked: true },
-  { id: "kafka_cdc", label: "Kafka / CDC transport", locked: true },
-  { id: "monitor", label: "Monitor", locked: true },
-  { id: "batch_builds", label: "Batch builds", locked: true },
-  { id: "rbac", label: "RBAC roles", locked: true },
+  { id: "monitor", label: "Monitor", icon: "M3 12h4l3 8 4-16 3 8h4", locked: true },
+  { id: "kafka_cdc", label: "Kafka / CDC transport", icon: "M7 8a3 3 0 100-6 3 3 0 000 6zm0 14a3 3 0 100-6 3 3 0 000 6zm11-7a3 3 0 100-6 3 3 0 000 6zM9.5 5l6 4M9.5 19l6-4", locked: true },
+  { id: "confluence_intake", label: "Confluence intake", icon: "M8 7h8M8 11h8M8 15h5M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z", locked: true },
+  { id: "batch_builds", label: "Batch builds", icon: "M4 6h16M4 12h16M4 18h10", locked: true },
+  { id: "rbac", label: "RBAC roles", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", locked: true },
 ];

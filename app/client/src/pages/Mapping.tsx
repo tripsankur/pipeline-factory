@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ColumnMapping, type Spec } from "../api";
 import { Button, Card, ConfidenceBadge, Mono } from "../components/ui";
+import { useToast } from "../components/Toast";
 
 export default function Mapping({
   specId,
@@ -26,13 +27,16 @@ export default function Mapping({
     if (specQuery.data) setDraft(specQuery.data.spec);
   }, [specQuery.data]);
 
+  const toast = useToast();
   const approve = useMutation({
     mutationFn: () => api.approveSpec(draft!.spec_id, draft!),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["specs"] });
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["fleet"] });
       setModalOpen(false);
+      toast(`Spec ${draft!.spec_id} v${r.spec.spec_version} approved by ${r.approved_by}`);
       onApproved(draft!.spec_id);
     },
+    onError: (e) => toast(String(e).slice(0, 160), "bad"),
   });
 
   if (!specId) {
@@ -42,6 +46,11 @@ export default function Mapping({
   if (specQuery.isError) return <p style={{ color: "var(--pf-bad)" }}>{String(specQuery.error)}</p>;
 
   const lowConfidence = draft.columns.filter((c) => c.confidence < 0.8).length;
+  const tiers = {
+    bad: draft.columns.filter((c) => c.confidence < 0.75).length,
+    warn: draft.columns.filter((c) => c.confidence >= 0.75 && c.confidence < 0.9).length,
+    ok: draft.columns.filter((c) => c.confidence >= 0.9).length,
+  };
 
   const editTransform = (name: string, transform: string) => {
     setDraft((d) =>
@@ -70,6 +79,30 @@ export default function Mapping({
             {lowConfidence} low-confidence mapping{lowConfidence > 1 ? "s" : ""} need review
           </span>
         )}
+        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {(
+            [
+              ["bad", tiers.bad, "< 75%"],
+              ["warn", tiers.warn, "75–89%"],
+              ["ok", tiers.ok, "≥ 90%"],
+            ] as const
+          ).map(([tier, count, label]) => (
+            <span
+              key={tier}
+              style={{
+                fontSize: 11,
+                fontFamily: "var(--pf-font-mono)",
+                padding: "3px 9px",
+                borderRadius: 20,
+                border: "1px solid var(--pf-bd)",
+                color: `var(--pf-${tier})`,
+                background: `var(--pf-${tier}-soft)`,
+              }}
+            >
+              {count} {label}
+            </span>
+          ))}
+        </span>
       </div>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>

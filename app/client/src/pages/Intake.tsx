@@ -75,6 +75,39 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
         {parse.isError && <p style={{ color: "var(--pf-bad)" }}>{String(parse.error)}</p>}
       </div>
 
+      {/* Confluence intake — visible, clickable, locked (coming-soon rule: never hidden) */}
+      <Card style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, opacity: 0.75 }}>
+        <input
+          placeholder="https://confluence.example.com/pages/interface-contract…"
+          disabled
+          style={{
+            flex: 1,
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid var(--pf-bd2)",
+            background: "var(--pf-input-bg)",
+            color: "var(--pf-tmut)",
+            fontFamily: "var(--pf-font-mono)",
+            fontSize: 12.5,
+          }}
+        />
+        <Button kind="ghost" onClick={() => api.featureClick("confluence_intake")}>
+          Harvest from Confluence
+        </Button>
+        <span
+          style={{
+            fontSize: 9.5,
+            padding: "2px 7px",
+            borderRadius: 20,
+            background: "var(--pf-chip)",
+            border: "1px solid var(--pf-bd)",
+            color: "var(--pf-tmut)",
+          }}
+        >
+          soon
+        </span>
+      </Card>
+
       {contract && (
         <Card>
           <h3 style={{ margin: "0 0 4px", fontSize: 15 }}>

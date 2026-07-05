@@ -60,6 +60,83 @@ export interface RenderedFile {
   sha256: string;
 }
 
+export interface FleetSpec {
+  spec_id: string;
+  entity: string;
+  status: string;
+  current_version: number;
+  approved_by: string | null;
+  updated_at: string | null;
+  source: string | null;
+  confidence: number | null;
+  low_confidence_count: number;
+  column_count: number;
+  last_build_status: string | null;
+  last_pr_url: string | null;
+}
+
+export interface FleetKpis {
+  total: number;
+  approved: number;
+  pr_open: number;
+  needs_human: number;
+  awaiting_review: number;
+}
+
+export interface EvidenceData {
+  spec: Spec;
+  builds: {
+    run_id: string;
+    status: string;
+    pr_url: string | null;
+    branch: string | null;
+    fix_iteration: string;
+    detail: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+  }[];
+  recon: {
+    source_count: string | null;
+    target_count: string | null;
+    key_match_rate: string | null;
+    row_match_rate: string | null;
+    attr_match_rate: string | null;
+    created_at: string | null;
+  } | null;
+  fixes: { version: string; reason: string }[];
+  expectations: { name: string; constraint: string; action: string }[];
+  approvals: unknown[];
+}
+
+export interface FeatureDef {
+  id: string;
+  title: string;
+  promise: string;
+  roadmap: "next" | "later" | "research";
+  available: boolean;
+}
+
+export interface BuildEvent {
+  type: "step" | "log" | "done" | "error";
+  step?: string;
+  status?: "running" | "done" | "deferred" | "failed";
+  meta?: string;
+  text?: string;
+  pr?: { url: string; number: number };
+  run_id?: string;
+}
+
+/** Live build via SSE. Returns a cancel function. */
+export function streamBuild(specId: string, onEvent: (e: BuildEvent) => void, onEnd: () => void): () => void {
+  const es = new EventSource(`/api/specs/${specId}/build/stream`);
+  es.onmessage = (m) => onEvent(JSON.parse(m.data) as BuildEvent);
+  es.onerror = () => {
+    es.close();
+    onEnd();
+  };
+  return () => es.close();
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.text();
@@ -106,8 +183,11 @@ export const api = {
     json(await fetch(`/api/specs/${id}/artifacts`)),
   build: async (
     id: string,
-  ): Promise<{ run_id: string; branch: string; pr: { url: string; number: number }; adapter: string; files: string[] }> =>
+  ): Promise<{ run_id: string; pr: { url: string; number: number }; adapter: string; logs: string[] }> =>
     json(await fetch(`/api/specs/${id}/build`, { method: "POST" })),
+  fleet: async (): Promise<{ specs: FleetSpec[]; kpis: FleetKpis }> => json(await fetch("/api/fleet")),
+  evidence: async (id: string): Promise<EvidenceData> => json(await fetch(`/api/specs/${id}/evidence`)),
+  features: async (): Promise<{ features: FeatureDef[] }> => json(await fetch("/api/features")),
   featureClick: (id: string): void => {
     void fetch(`/api/features/${id}/click`, { method: "POST" });
   },
