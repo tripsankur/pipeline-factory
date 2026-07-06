@@ -13,6 +13,7 @@ export const MAIN_NAV: NavItem[] = [
   { id: "mapping", label: "Mapping review", icon: "M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6", locked: false },
   { id: "build", label: "Build & test", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5", locked: false },
   { id: "evidence", label: "PR evidence", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", locked: false },
+  { id: "lineage", label: "Lineage", icon: "M5 7a2 2 0 100-4 2 2 0 000 4zM5 21a2 2 0 100-4 2 2 0 000 4zM19 14a2 2 0 100-4 2 2 0 000 4zM7 5h6a4 4 0 014 4v1M7 19h6a4 4 0 004-4v-1", locked: false },
   { id: "history", label: "Spec history", icon: "M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z", locked: false },
   { id: "settings", label: "Settings", icon: "M10.325 4.317a1.724 1.724 0 013.35 0 1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572 1.724 1.724 0 010 3.35 1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065 1.724 1.724 0 01-3.35 0 1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572 1.724 1.724 0 010-3.35 1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", locked: false },
 ];

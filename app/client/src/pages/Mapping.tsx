@@ -68,14 +68,14 @@ export default function Mapping({
   return (
     <div style={{ paddingBottom: 90 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 17 }}>
+        <h2 style={{ margin: 0, fontSize: 14.5 }}>
           <Mono>{draft.entity}</Mono> · v{draft.spec_version}
         </h2>
-        <span style={{ fontSize: 12, color: "var(--pf-tmut)" }}>
+        <span style={{ fontSize: 11.2, color: "var(--pf-tmut)" }}>
           {draft.source.entity} → {draft.target.entity}
         </span>
         {lowConfidence > 0 && (
-          <span style={{ fontSize: 12, color: "var(--pf-warn)" }}>
+          <span style={{ fontSize: 11.2, color: "var(--pf-warn)" }}>
             {lowConfidence} low-confidence mapping{lowConfidence > 1 ? "s" : ""} need review
           </span>
         )}
@@ -90,7 +90,7 @@ export default function Mapping({
             <span
               key={tier}
               style={{
-                fontSize: 11,
+                fontSize: 10.4,
                 fontFamily: "var(--pf-font-mono)",
                 padding: "3px 9px",
                 borderRadius: 20,
@@ -106,7 +106,7 @@ export default function Mapping({
       </div>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
           <thead>
             <tr style={{ color: "var(--pf-tmut)", textAlign: "left", background: "var(--pf-surf2)" }}>
               <th style={{ padding: "10px 14px" }}>Source</th>
@@ -146,7 +146,7 @@ export default function Mapping({
                       background: "var(--pf-code-bg)",
                       color: "var(--pf-tpri)",
                       fontFamily: "var(--pf-font-mono)",
-                      fontSize: 12,
+                      fontSize: 11.2,
                     }}
                   />
                 </td>
@@ -161,7 +161,7 @@ export default function Mapping({
                       border: "none",
                       color: "var(--pf-acc)",
                       cursor: "pointer",
-                      fontSize: 12,
+                      fontSize: 11.2,
                     }}
                   >
                     why?
@@ -194,15 +194,15 @@ export default function Mapping({
               ✕
             </button>
           </div>
-          <p style={{ fontSize: 12, color: "var(--pf-acc)", margin: "0 0 10px" }}>← {drawer.name}</p>
-          <p style={{ fontSize: 13, color: "var(--pf-tsec)", lineHeight: 1.6 }}>{drawer.rationale}</p>
+          <p style={{ fontSize: 11.2, color: "var(--pf-acc)", margin: "0 0 10px" }}>← {drawer.name}</p>
+          <p style={{ fontSize: 12.1, color: "var(--pf-tsec)", lineHeight: 1.6 }}>{drawer.rationale}</p>
           {drawer.value_map.length > 0 && (
             <>
-              <p style={{ fontSize: 11, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
+              <p style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
                 Value map
               </p>
               {drawer.value_map.map((v) => (
-                <div key={v.from} style={{ fontSize: 12, fontFamily: "var(--pf-font-mono)", color: "var(--pf-tsec)" }}>
+                <div key={v.from} style={{ fontSize: 11.2, fontFamily: "var(--pf-font-mono)", color: "var(--pf-tsec)" }}>
                   {v.from} → {v.to}
                 </div>
               ))}
@@ -227,7 +227,7 @@ export default function Mapping({
           zIndex: 10,
         }}
       >
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--pf-tsec)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10.8, color: "var(--pf-tsec)" }}>
           <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
           I reviewed every low-confidence mapping and edited transforms where needed
         </label>
@@ -254,7 +254,7 @@ export default function Mapping({
           <Card style={{ width: 440 }} >
             <div onClick={(e) => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>Approve mapping spec?</h3>
-              <p style={{ fontSize: 13, color: "var(--pf-tsec)", lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12.1, color: "var(--pf-tsec)", lineHeight: 1.6 }}>
                 Approval freezes <Mono>{draft.spec_id}</Mono> v{draft.spec_version} as the render
                 input. Artifacts are generated deterministically from this spec — the build never
                 edits files directly.
@@ -268,7 +268,7 @@ export default function Mapping({
                 </Button>
               </div>
               {approve.isError && (
-                <p style={{ color: "var(--pf-bad)", fontSize: 12.5 }}>{String(approve.error)}</p>
+                <p style={{ color: "var(--pf-bad)", fontSize: 10.8 }}>{String(approve.error)}</p>
               )}
             </div>
           </Card>

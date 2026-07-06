@@ -40,14 +40,14 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
           const pctNum = k.of ? Math.round((k.value / Math.max(1, k.of)) * 100) : null;
           return (
             <Card key={k.label} style={{ flex: 1, padding: "14px 18px" }}>
-              <div style={{ fontSize: 11, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
+              <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
                 {k.label}
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 700 }}>{k.value}</span>
-                {k.of !== null && <span style={{ fontSize: 12, color: "var(--pf-tmut)" }}>/ {k.of}</span>}
+                <span style={{ fontSize: 20, fontWeight: 700 }}>{k.value}</span>
+                {k.of !== null && <span style={{ fontSize: 11.2, color: "var(--pf-tmut)" }}>/ {k.of}</span>}
                 {pctNum !== null && (
-                  <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: k.color }}>{pctNum}%</span>
+                  <span style={{ marginLeft: "auto", fontSize: 11.2, fontWeight: 600, color: k.color }}>{pctNum}%</span>
                 )}
               </div>
               <div style={{ height: 4, borderRadius: 4, background: "var(--pf-track)", marginTop: 10, overflow: "hidden" }}>
@@ -70,7 +70,7 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
         {specs.length === 0 ? (
           <p style={{ padding: 24, color: "var(--pf-tsec)" }}>No specs yet — start with Contract intake.</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
             <thead>
               <tr style={{ color: "var(--pf-tmut)", textAlign: "left", background: "var(--pf-surf2)" }}>
                 <th style={{ padding: "10px 16px" }}>Entity</th>
@@ -85,12 +85,12 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
               {specs.map((r) => (
                 <tr
                   key={r.spec_id}
-                  onClick={() => onOpenSpec(r.spec_id)}
+                  className="pf-row" onClick={() => onOpenSpec(r.spec_id)}
                   style={{ borderTop: "1px solid var(--pf-bd)", cursor: "pointer" }}
                 >
                   <td style={{ padding: "10px 16px" }}>
                     <div style={{ fontWeight: 600 }}>{r.entity}</div>
-                    <div style={{ fontSize: 11, color: "var(--pf-tmut)", fontFamily: "var(--pf-font-mono)" }}>
+                    <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", fontFamily: "var(--pf-font-mono)" }}>
                       {r.source ?? r.spec_id} · v{r.current_version}
                     </div>
                   </td>
@@ -112,11 +112,11 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
                             }}
                           />
                         </div>
-                        <span style={{ fontSize: 11.5, fontFamily: "var(--pf-font-mono)", color: confColor(r.confidence) }}>
+                        <span style={{ fontSize: 10.8, fontFamily: "var(--pf-font-mono)", color: confColor(r.confidence) }}>
                           {Math.round(r.confidence * 100)}%
                         </span>
                         {r.low_confidence_count > 0 && (
-                          <span style={{ fontSize: 10.5, color: "var(--pf-warn)" }}>{r.low_confidence_count} low</span>
+                          <span style={{ fontSize: 9.8, color: "var(--pf-warn)" }}>{r.low_confidence_count} low</span>
                         )}
                       </div>
                     )}
@@ -125,7 +125,7 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
                     {r.last_build_status ? (
                       <span
                         style={{
-                          fontSize: 11,
+                          fontSize: 10.4,
                           fontWeight: 600,
                           color:
                             r.last_build_status === "succeeded"

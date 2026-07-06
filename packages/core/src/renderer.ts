@@ -1,5 +1,6 @@
 import nunjucks from "nunjucks";
 import { createHash } from "node:crypto";
+import { batchId, flowName, ingestMode } from "./batches.js";
 import type { Spec } from "./spec.js";
 
 /**
@@ -45,8 +46,14 @@ export function createRenderer(opts: RendererOptions) {
   env.addFilter("pyStr", (v: string) => JSON.stringify(String(v)));
 
   return function render(spec: Spec): RenderResult {
+    const mode = ingestMode(spec);
     const ctx = {
       spec,
+      ingest: {
+        mode,
+        batch: batchId(spec.source.system, mode),
+        flow: flowName(spec),
+      },
       tag: {
         generated_by: "pipeline_factory",
         spec_id: spec.spec_id,

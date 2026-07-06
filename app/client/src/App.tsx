@@ -7,6 +7,7 @@ import Intake from "./pages/Intake";
 import Mapping from "./pages/Mapping";
 import Evidence from "./pages/Evidence";
 import BuildConsole from "./pages/BuildConsole";
+import Lineage from "./pages/Lineage";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import { Card } from "./components/ui";
@@ -41,6 +42,7 @@ export default function App() {
   const navBtn = (item: NavItem, active: boolean, badge?: number) => (
     <button
       key={item.id}
+      className="pf-nav-btn"
       onClick={() => (item.locked ? openLocked(item.id) : setPage(item.id))}
       style={{
         display: "flex",
@@ -52,7 +54,7 @@ export default function App() {
         border: `1px solid ${active ? "var(--pf-acc-soft)" : "transparent"}`,
         borderRadius: 8,
         cursor: "pointer",
-        fontSize: 13.5,
+        fontSize: 12.4,
         fontFamily: "var(--pf-font-sans)",
         background: active ? "var(--pf-acc-soft)" : "transparent",
         color: active ? "var(--pf-tpri)" : item.locked ? "var(--pf-tmut)" : "var(--pf-tsec)",
@@ -65,7 +67,7 @@ export default function App() {
         <span
           style={{
             marginLeft: "auto",
-            fontSize: 10.5,
+            fontSize: 9.8,
             fontWeight: 700,
             minWidth: 18,
             textAlign: "center",
@@ -82,7 +84,7 @@ export default function App() {
         <span
           style={{
             marginLeft: "auto",
-            fontSize: 9.5,
+            fontSize: 9,
             padding: "2px 7px",
             borderRadius: 20,
             background: "var(--pf-chip)",
@@ -134,14 +136,14 @@ export default function App() {
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 700,
-                fontSize: 15,
+                fontSize: 13.2,
               }}
             >
               PF
             </div>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>Pipeline Factory</div>
-              <div style={{ fontSize: 11, color: "var(--pf-tmut)" }}>ingestion builder</div>
+              <div style={{ fontWeight: 600, fontSize: 12.8 }}>Pipeline Factory</div>
+              <div style={{ fontSize: 10.4, color: "var(--pf-tmut)" }}>ingestion builder</div>
             </div>
           </div>
 
@@ -150,7 +152,7 @@ export default function App() {
             <div
               style={{
                 margin: "14px 14px 6px",
-                fontSize: 10.5,
+                fontSize: 9.8,
                 letterSpacing: 1,
                 textTransform: "uppercase",
                 color: "var(--pf-tmut)",
@@ -175,7 +177,7 @@ export default function App() {
                 cursor: "pointer",
                 background: "transparent",
                 color: "var(--pf-tsec)",
-                fontSize: 13,
+                fontSize: 12.1,
                 fontFamily: "var(--pf-font-sans)",
               }}
             >
@@ -207,8 +209,8 @@ export default function App() {
           </div>
         </aside>
 
-        <main style={{ flex: 1, overflow: "auto", padding: 28 }}>
-          <h1 style={{ fontSize: 19, margin: "0 0 18px" }}>
+        <main key={page} className="pf-page" style={{ flex: 1, overflow: "auto", padding: 28 }}>
+          <h1 style={{ fontSize: 15.5, margin: "0 0 18px" }}>
             {[...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page.replaceAll("_", " ")}
           </h1>
 
@@ -217,6 +219,7 @@ export default function App() {
           {page === "mapping" && <Mapping specId={activeSpecId} onApproved={(id) => openSpec(id, "build")} />}
           {page === "build" && <BuildConsole specId={activeSpecId} />}
           {page === "evidence" && <Evidence specId={activeSpecId} />}
+          {page === "lineage" && <Lineage onOpenSpec={(id) => openSpec(id, "mapping")} />}
           {page === "history" && <History specId={activeSpecId} />}
           {page === "settings" && <Settings />}
           {LOCKED_NAV.some((n) => n.id === page) && <ComingSoon id={page} />}
@@ -237,7 +240,7 @@ function ComingSoon({ id }: { id: string }) {
         <div
           style={{
             display: "inline-block",
-            fontSize: 10.5,
+            fontSize: 9.8,
             letterSpacing: 1,
             textTransform: "uppercase",
             color: "var(--pf-acc)",
@@ -249,17 +252,17 @@ function ComingSoon({ id }: { id: string }) {
         >
           Coming soon{feature ? ` · ${roadmapLabel[feature.roadmap]}` : ""}
         </div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>{feature?.title ?? id.replaceAll("_", " ")}</h2>
-        <p style={{ color: "var(--pf-tsec)", fontSize: 13.5, lineHeight: 1.6 }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: 13.2 }}>{feature?.title ?? id.replaceAll("_", " ")}</h2>
+        <p style={{ color: "var(--pf-tsec)", fontSize: 12.4, lineHeight: 1.6 }}>
           {feature?.promise ?? "This capability is on the roadmap."}
         </p>
-        <p style={{ color: "var(--pf-tmut)", fontSize: 12 }}>
+        <p style={{ color: "var(--pf-tmut)", fontSize: 11.2 }}>
           Your click was logged to the roadmap signal — it directly affects prioritization.
         </p>
       </Card>
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 13 }}>
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 12.1 }}>
           Full roadmap
         </div>
         {(q.data?.features ?? [])
@@ -273,14 +276,14 @@ function ComingSoon({ id }: { id: string }) {
                 display: "flex",
                 gap: 10,
                 alignItems: "baseline",
-                fontSize: 12.5,
+                fontSize: 10.8,
               }}
             >
               <span style={{ fontWeight: 600, minWidth: 180 }}>{f.title}</span>
               <span style={{ color: "var(--pf-tsec)", flex: 1 }}>{f.promise}</span>
               <span
                 style={{
-                  fontSize: 10.5,
+                  fontSize: 9.8,
                   padding: "2px 8px",
                   borderRadius: 20,
                   background: "var(--pf-chip)",

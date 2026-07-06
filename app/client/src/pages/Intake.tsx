@@ -58,7 +58,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
         }}
       >
         <p style={{ margin: "0 0 6px", fontWeight: 600 }}>Drop an interface contract</p>
-        <p style={{ margin: "0 0 14px", color: "var(--pf-tmut)", fontSize: 12.5 }}>
+        <p style={{ margin: "0 0 14px", color: "var(--pf-tmut)", fontSize: 10.8 }}>
           CSV schema or Word document · Confluence coming soon
         </p>
         <input
@@ -88,7 +88,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
             background: "var(--pf-input-bg)",
             color: "var(--pf-tmut)",
             fontFamily: "var(--pf-font-mono)",
-            fontSize: 12.5,
+            fontSize: 10.8,
           }}
         />
         <Button kind="ghost" onClick={() => api.featureClick("confluence_intake")}>
@@ -96,7 +96,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
         </Button>
         <span
           style={{
-            fontSize: 9.5,
+            fontSize: 9,
             padding: "2px 7px",
             borderRadius: 20,
             background: "var(--pf-chip)",
@@ -110,13 +110,13 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
 
       {contract && (
         <Card>
-          <h3 style={{ margin: "0 0 4px", fontSize: 15 }}>
+          <h3 style={{ margin: "0 0 4px", fontSize: 13.2 }}>
             Parsed schema: <Mono>{contract.entity}</Mono>
           </h3>
-          <p style={{ margin: "0 0 12px", color: "var(--pf-tmut)", fontSize: 12 }}>
+          <p style={{ margin: "0 0 12px", color: "var(--pf-tmut)", fontSize: 11.2 }}>
             {contract.columns.length} columns · {contract.sourceKind}
           </p>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
             <thead>
               <tr style={{ color: "var(--pf-tmut)", textAlign: "left" }}>
                 <th style={{ padding: "6px 8px" }}>Column</th>
@@ -149,7 +149,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
                 ["crosswalkTable", "Crosswalk table (3-part)"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} style={{ fontSize: 12, color: "var(--pf-tsec)" }}>
+              <label key={key} style={{ fontSize: 11.2, color: "var(--pf-tsec)" }}>
                 {label}
                 <input
                   value={form[key]}
@@ -164,7 +164,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
                     background: "var(--pf-input-bg)",
                     color: "var(--pf-tpri)",
                     fontFamily: "var(--pf-font-mono)",
-                    fontSize: 12.5,
+                    fontSize: 10.8,
                   }}
                 />
               </label>
@@ -176,7 +176,7 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
               {generate.isPending ? "Generating mapping…" : "Generate mapping"}
             </Button>
             {generate.isError && (
-              <span style={{ color: "var(--pf-bad)", fontSize: 12.5 }}>{String(generate.error)}</span>
+              <span style={{ color: "var(--pf-bad)", fontSize: 10.8 }}>{String(generate.error)}</span>
             )}
           </div>
         </Card>

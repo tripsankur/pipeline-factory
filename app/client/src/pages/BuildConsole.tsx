@@ -74,7 +74,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
         <Mono>{specId}</Mono>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
           {result?.pr && (
-            <span style={{ fontSize: 12.5, color: "var(--pf-ok)" }}>
+            <span style={{ fontSize: 10.8, color: "var(--pf-ok)" }}>
               PR{" "}
               {result.pr.url.startsWith("http") ? (
                 <a href={result.pr.url} target="_blank" rel="noreferrer" style={{ color: "var(--pf-acc)" }}>
@@ -86,7 +86,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
               opened — merge is yours (human gate #2)
             </span>
           )}
-          {result?.error && <span style={{ fontSize: 12.5, color: "var(--pf-bad)" }}>{result.error}</span>}
+          {result?.error && <span style={{ fontSize: 10.8, color: "var(--pf-bad)" }}>{result.error}</span>}
           <Button onClick={start} disabled={running}>
             {running ? "Building…" : "Run build"}
           </Button>
@@ -120,7 +120,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
                       alignItems: "center",
                       justifyContent: "center",
                       color: st.status === "done" ? "var(--pf-acc-tx)" : color,
-                      fontSize: 13,
+                      fontSize: 12.1,
                       animation: st.status === "running" ? "pf_pulse 1.2s ease-in-out infinite" : undefined,
                     }}
                   >
@@ -129,14 +129,14 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
                   <div
                     style={{
                       marginTop: 7,
-                      fontSize: 12,
+                      fontSize: 11.2,
                       fontWeight: 600,
                       color: st.status === "pending" || st.status === "deferred" ? "var(--pf-tmut)" : "var(--pf-tpri)",
                     }}
                   >
                     {def.label}
                   </div>
-                  <div style={{ fontSize: 10.5, color: "var(--pf-tmut)", textAlign: "center", maxWidth: 110 }}>
+                  <div style={{ fontSize: 9.8, color: "var(--pf-tmut)", textAlign: "center", maxWidth: 110 }}>
                     {st.meta}
                   </div>
                 </div>
@@ -162,7 +162,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
           style={{
             padding: "8px 14px",
             borderBottom: "1px solid var(--pf-bd)",
-            fontSize: 11.5,
+            fontSize: 10.8,
             color: "var(--pf-tmut)",
             display: "flex",
             gap: 8,
@@ -188,7 +188,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
             maxHeight: 320,
             overflow: "auto",
             fontFamily: "var(--pf-font-mono)",
-            fontSize: 12,
+            fontSize: 11.2,
             lineHeight: 1.7,
             color: "var(--pf-tsec)",
           }}
@@ -208,7 +208,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
       {fixes.length > 0 && (
         <Card style={{ borderColor: "var(--pf-warn)", padding: "14px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <span style={{ fontWeight: 600, fontSize: 13, color: "var(--pf-warn)" }}>
+            <span style={{ fontWeight: 600, fontSize: 12.1, color: "var(--pf-warn)" }}>
               Fix loop — attempt {fixes[fixes.length - 1]!.iteration} of {fixes[fixes.length - 1]!.max}
             </span>
             <span style={{ display: "flex", gap: 4 }}>
@@ -226,12 +226,12 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
             </span>
           </div>
           {fixes.map((f) => (
-            <div key={f.iteration} style={{ fontSize: 12.5, color: "var(--pf-tsec)", padding: "3px 0" }}>
+            <div key={f.iteration} style={{ fontSize: 10.8, color: "var(--pf-tsec)", padding: "3px 0" }}>
               <span style={{ fontFamily: "var(--pf-font-mono)", color: "var(--pf-tmut)" }}>#{f.iteration}</span>{" "}
               {f.reason}
             </div>
           ))}
-          <p style={{ fontSize: 11.5, color: "var(--pf-tmut)", margin: "8px 0 0" }}>
+          <p style={{ fontSize: 10.8, color: "var(--pf-tmut)", margin: "8px 0 0" }}>
             The LLM edits the spec, never files — each fix re-renders, re-stages, re-runs (constraint #2).
           </p>
         </Card>
@@ -240,7 +240,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
       {/* shown only when runner jobs are not wired (e.g. local dev without bundle jobs) */}
       {Object.values(steps).some((s) => s.status === "deferred") && (
         <Card style={{ borderColor: "var(--pf-warn)", background: "var(--pf-warn-soft)", padding: "12px 18px" }}>
-          <span style={{ fontSize: 12.5, color: "var(--pf-tsec)" }}>
+          <span style={{ fontSize: 10.8, color: "var(--pf-tsec)" }}>
             <strong style={{ color: "var(--pf-warn)" }}>Runner steps deferred:</strong> runner job ids are
             not configured in this environment — pipeline run / tests / recon were skipped, never simulated.
           </span>

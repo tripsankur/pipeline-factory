@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 export function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div
+      className="pf-card"
       style={{
         background: "var(--pf-surf)",
         border: "1px solid var(--pf-bd)",
@@ -30,7 +31,7 @@ export function Button({
   const base: CSSProperties = {
     padding: "9px 18px",
     borderRadius: 8,
-    fontSize: 13.5,
+    fontSize: 12.4,
     fontWeight: 600,
     fontFamily: "var(--pf-font-sans)",
     cursor: disabled ? "not-allowed" : "pointer",
@@ -43,7 +44,7 @@ export function Button({
     danger: { background: "var(--pf-bad-soft)", color: "var(--pf-bad)" },
   };
   return (
-    <button style={{ ...base, ...kinds[kind] }} onClick={onClick} disabled={disabled}>
+    <button className="pf-btn" style={{ ...base, ...kinds[kind] }} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
@@ -54,7 +55,7 @@ export function ConfidenceBadge({ value }: { value: number }) {
   return (
     <span
       style={{
-        fontSize: 11.5,
+        fontSize: 10.8,
         fontFamily: "var(--pf-font-mono)",
         fontWeight: 600,
         padding: "2px 8px",
@@ -82,7 +83,7 @@ export function StatusPill({ status }: { status: string }) {
   return (
     <span
       style={{
-        fontSize: 11,
+        fontSize: 10.4,
         fontWeight: 600,
         letterSpacing: 0.4,
         textTransform: "uppercase",
@@ -99,6 +100,6 @@ export function StatusPill({ status }: { status: string }) {
 
 export function Mono({ children }: { children: ReactNode }) {
   return (
-    <span style={{ fontFamily: "var(--pf-font-mono)", fontSize: 12.5 }}>{children}</span>
+    <span style={{ fontFamily: "var(--pf-font-mono)", fontSize: 10.8 }}>{children}</span>
   );
 }

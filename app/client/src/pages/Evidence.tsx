@@ -31,12 +31,12 @@ export default function Evidence({ specId }: { specId: string | null }) {
       {/* header */}
       <Card style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
         <Mono>{d.spec.spec_id}</Mono>
-        <span style={{ color: "var(--pf-tmut)", fontSize: 12 }}>v{d.spec.spec_version}</span>
-        <span style={{ color: "var(--pf-tsec)", fontSize: 12.5 }}>
+        <span style={{ color: "var(--pf-tmut)", fontSize: 11.2 }}>v{d.spec.spec_version}</span>
+        <span style={{ color: "var(--pf-tsec)", fontSize: 10.8 }}>
           {d.spec.source.entity} → {d.spec.target.entity}
         </span>
         {lastBuild?.pr_url && (
-          <span style={{ marginLeft: "auto", fontSize: 12.5 }}>
+          <span style={{ marginLeft: "auto", fontSize: 10.8 }}>
             {lastBuild.pr_url.startsWith("http") ? (
               <a href={lastBuild.pr_url} target="_blank" rel="noreferrer" style={{ color: "var(--pf-acc)" }}>
                 {lastBuild.pr_url}
@@ -52,12 +52,12 @@ export default function Evidence({ specId }: { specId: string | null }) {
       <div style={{ display: "flex", gap: 12 }}>
         {reconCards.map((c) => (
           <Card key={c.label} style={{ flex: 1, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
+            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
               {c.label}
             </div>
             <div
               style={{
-                fontSize: 26,
+                fontSize: 21,
                 fontWeight: 700,
                 marginTop: 6,
                 color: c.value ? "var(--pf-ok)" : "var(--pf-tmut)",
@@ -66,7 +66,7 @@ export default function Evidence({ specId }: { specId: string | null }) {
               {c.value ?? "—"}
             </div>
             {!c.value && (
-              <div style={{ fontSize: 11, color: "var(--pf-tmut)", marginTop: 4 }}>
+              <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", marginTop: 4 }}>
                 awaiting recon runner (M4)
               </div>
             )}
@@ -76,23 +76,23 @@ export default function Evidence({ specId }: { specId: string | null }) {
 
       {/* expectations */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 13 }}>
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 12.1 }}>
           Expectations ({d.expectations.length})
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
           <tbody>
             {d.expectations.map((e) => (
               <tr key={e.name} style={{ borderTop: "1px solid var(--pf-bd)" }}>
                 <td style={{ padding: "9px 16px" }}>
                   <Mono>{e.name}</Mono>
                 </td>
-                <td style={{ padding: "9px 16px", color: "var(--pf-tsec)", fontFamily: "var(--pf-font-mono)", fontSize: 12 }}>
+                <td style={{ padding: "9px 16px", color: "var(--pf-tsec)", fontFamily: "var(--pf-font-mono)", fontSize: 11.2 }}>
                   {e.constraint}
                 </td>
                 <td style={{ padding: "9px 16px", width: 90 }}>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 10.4,
                       fontWeight: 600,
                       padding: "2px 9px",
                       borderRadius: 20,
@@ -118,11 +118,11 @@ export default function Evidence({ specId }: { specId: string | null }) {
       {/* build + fix history */}
       <div style={{ display: "flex", gap: 12 }}>
         <Card style={{ flex: 1, padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 13 }}>
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 12.1 }}>
             Build history
           </div>
           {d.builds.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--pf-tmut)", fontSize: 12.5 }}>no builds yet</p>
+            <p style={{ padding: 16, color: "var(--pf-tmut)", fontSize: 10.8 }}>no builds yet</p>
           ) : (
             d.builds.map((b) => (
               <div
@@ -133,7 +133,7 @@ export default function Evidence({ specId }: { specId: string | null }) {
                   display: "flex",
                   gap: 10,
                   alignItems: "center",
-                  fontSize: 12,
+                  fontSize: 11.2,
                 }}
               >
                 <StatusPill status={b.status === "succeeded" ? "done" : b.status === "failed" ? "needs_human" : "building"} />
@@ -145,14 +145,14 @@ export default function Evidence({ specId }: { specId: string | null }) {
           )}
         </Card>
         <Card style={{ flex: 1, padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 13 }}>
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 12.1 }}>
             Fix-loop timeline
           </div>
           {d.fixes.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--pf-tmut)", fontSize: 12.5 }}>no fixes required</p>
+            <p style={{ padding: 16, color: "var(--pf-tmut)", fontSize: 10.8 }}>no fixes required</p>
           ) : (
             d.fixes.map((f) => (
-              <div key={f.version} style={{ padding: "9px 16px", borderTop: "1px solid var(--pf-bd)", fontSize: 12.5 }}>
+              <div key={f.version} style={{ padding: "9px 16px", borderTop: "1px solid var(--pf-bd)", fontSize: 10.8 }}>
                 <Mono>{f.version}</Mono>
                 <span style={{ color: "var(--pf-tsec)", marginLeft: 8 }}>{f.reason}</span>
               </div>
@@ -163,7 +163,7 @@ export default function Evidence({ specId }: { specId: string | null }) {
 
       {/* rendered artifacts */}
       <div>
-        <h3 style={{ fontSize: 14, margin: "6px 0 10px" }}>Rendered artifacts</h3>
+        <h3 style={{ fontSize: 12.8, margin: "6px 0 10px" }}>Rendered artifacts</h3>
         <Artifacts specId={specId} />
       </div>
     </div>

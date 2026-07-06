@@ -23,7 +23,7 @@ export default function Settings() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720 }}>
       <div>
-        <h3 style={{ fontSize: 14, margin: "0 0 10px" }}>Connections</h3>
+        <h3 style={{ fontSize: 12.8, margin: "0 0 10px" }}>Connections</h3>
         {connections.isLoading && <p style={{ color: "var(--pf-tsec)" }}>Checking…</p>}
         {connections.isError && <p style={{ color: "var(--pf-bad)" }}>{String(connections.error)}</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -38,8 +38,8 @@ export default function Settings() {
                   flexShrink: 0,
                 }}
               />
-              <span style={{ fontWeight: 600, fontSize: 13, minWidth: 120 }}>{c.name}</span>
-              <span style={{ color: "var(--pf-tsec)", fontSize: 12.5, fontFamily: "var(--pf-font-mono)" }}>
+              <span style={{ fontWeight: 600, fontSize: 12.1, minWidth: 120 }}>{c.name}</span>
+              <span style={{ color: "var(--pf-tsec)", fontSize: 10.8, fontFamily: "var(--pf-font-mono)" }}>
                 {c.detail}
               </span>
             </Card>
@@ -48,7 +48,7 @@ export default function Settings() {
       </div>
 
       <div>
-        <h3 style={{ fontSize: 14, margin: "0 0 10px" }}>Feature flags</h3>
+        <h3 style={{ fontSize: 12.8, margin: "0 0 10px" }}>Feature flags</h3>
         <Card style={{ padding: 0, overflow: "hidden" }}>
           {(features.data?.features ?? []).map((f) => (
             <div
@@ -59,7 +59,7 @@ export default function Settings() {
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                fontSize: 12.5,
+                fontSize: 10.8,
               }}
             >
               <span
@@ -72,11 +72,11 @@ export default function Settings() {
                 }}
               />
               <span style={{ fontWeight: 600, minWidth: 190 }}>{f.title}</span>
-              <span style={{ color: "var(--pf-tmut)", fontFamily: "var(--pf-font-mono)", fontSize: 11.5 }}>{f.id}</span>
+              <span style={{ color: "var(--pf-tmut)", fontFamily: "var(--pf-font-mono)", fontSize: 10.8 }}>{f.id}</span>
               <span
                 style={{
                   marginLeft: "auto",
-                  fontSize: 10.5,
+                  fontSize: 9.8,
                   padding: "2px 8px",
                   borderRadius: 20,
                   background: f.available ? "var(--pf-ok-soft)" : "var(--pf-chip)",

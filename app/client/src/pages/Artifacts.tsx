@@ -22,11 +22,11 @@ export default function Artifacts({ specId }: { specId: string | null }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <Card style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-        <span style={{ fontSize: 12, color: "var(--pf-tmut)" }}>branch </span>
+        <span style={{ fontSize: 11.2, color: "var(--pf-tmut)" }}>branch </span>
         <Mono>{q.data?.branch}</Mono>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
           {build.isSuccess && (
-            <span style={{ fontSize: 12.5, color: "var(--pf-ok)" }}>
+            <span style={{ fontSize: 10.8, color: "var(--pf-ok)" }}>
               PR opened via {build.data.adapter}:{" "}
               {build.data.pr.url.startsWith("http") ? (
                 <a href={build.data.pr.url} target="_blank" rel="noreferrer" style={{ color: "var(--pf-acc)" }}>
@@ -38,7 +38,7 @@ export default function Artifacts({ specId }: { specId: string | null }) {
             </span>
           )}
           {build.isError && (
-            <span style={{ fontSize: 12.5, color: "var(--pf-bad)" }}>{String(build.error).slice(0, 160)}</span>
+            <span style={{ fontSize: 10.8, color: "var(--pf-bad)" }}>{String(build.error).slice(0, 160)}</span>
           )}
           <Button onClick={() => build.mutate()} disabled={build.isPending}>
             {build.isPending ? "Building…" : "Build & open PR"}
@@ -60,7 +60,7 @@ export default function Artifacts({ specId }: { specId: string | null }) {
                 border: "none",
                 cursor: "pointer",
                 fontFamily: "var(--pf-font-mono)",
-                fontSize: 11.5,
+                fontSize: 10.8,
                 background: i === selected ? "var(--pf-acc-soft)" : "transparent",
                 color: i === selected ? "var(--pf-acc)" : "var(--pf-tsec)",
               }}
@@ -74,7 +74,7 @@ export default function Artifacts({ specId }: { specId: string | null }) {
             style={{
               padding: "8px 14px",
               borderBottom: "1px solid var(--pf-bd)",
-              fontSize: 11.5,
+              fontSize: 10.8,
               color: "var(--pf-tmut)",
               fontFamily: "var(--pf-font-mono)",
             }}
@@ -87,7 +87,7 @@ export default function Artifacts({ specId }: { specId: string | null }) {
               padding: 16,
               overflow: "auto",
               maxHeight: 520,
-              fontSize: 12,
+              fontSize: 11.2,
               fontFamily: "var(--pf-font-mono)",
               background: "var(--pf-code-bg)",
               color: "var(--pf-tpri)",

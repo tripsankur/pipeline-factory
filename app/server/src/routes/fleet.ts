@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { FEATURES, SpecSchema, fq } from "@pf/core";
+import { FEATURES, SpecSchema, deriveBatches, fq, type Spec } from "@pf/core";
 import type { DbxClient } from "@pf/dbx";
 import type { RegistryClient } from "../lib/registry-client.js";
 import type { AppConfig } from "../config.js";
@@ -120,4 +120,46 @@ export function registerFleetRoutes(
 
   /** Feature catalog for the coming-soon panels (single source: @pf/core FEATURES). */
   app.get("/api/features", async () => ({ features: FEATURES }));
+
+  /**
+   * Lineage — the single source of truth for what flows from where.
+   * Derived live from the registry's current spec versions: source system →
+   * ingestion batch (one per source) → bronze table → silver stitch (crosswalk)
+   * → target table.
+   */
+  app.get("/api/lineage", async () => {
+    const rows = await dbx.sqlRows(
+      `SELECT v.spec_json
+       FROM ${t("spec_registry")} r
+       INNER JOIN ${t("spec_versions")} v
+         ON v.spec_id = r.spec_id AND v.spec_version = r.current_version
+       WHERE r.status != 'draft'`,
+      cfg.DATABRICKS_WAREHOUSE_ID,
+    );
+    const specs: Spec[] = [];
+    for (const r of rows) {
+      try {
+        if (r.spec_json) specs.push(SpecSchema.parse(JSON.parse(r.spec_json)));
+      } catch {
+        // skip unparseable historical versions
+      }
+    }
+    const batches = deriveBatches(specs);
+    return {
+      batches,
+      entities: specs.map((s) => ({
+        spec_id: s.spec_id,
+        spec_version: s.spec_version,
+        entity: s.entity,
+        source_system: s.source.system,
+        source_object: s.ingestion.source_object,
+        bronze_table: s.source.entity,
+        crosswalk_table: s.crosswalk.table,
+        target_table: s.target.entity,
+        target_system: s.target.system,
+        mode: s.ingestion.mode,
+        column_count: s.columns.length,
+      })),
+    };
+  });
 }

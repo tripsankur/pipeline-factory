@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               color: "var(--pf-tpri)",
               borderRadius: 10,
               padding: "11px 16px",
-              fontSize: 13,
+              fontSize: 12.1,
               boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
               animation: "pf_slidein 0.2s ease-out",
               maxWidth: 380,
