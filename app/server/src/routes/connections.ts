@@ -156,21 +156,33 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
       return fail(`token exchange failed: ${token.error ?? tokenRes.status} ${token.error_description ?? ""}`);
     }
 
-    try {
-      await dbx.connectionCreate({
-        name: p.name,
-        connection_type: "SALESFORCE",
-        comment: "created by pipeline_factory (OAuth via app)",
-        options: {
-          client_id: p.clientId,
-          client_secret: p.clientSecret,
-          refresh_token: token.refresh_token,
-          instance_url: token.instance_url ?? "",
-          is_sandbox: String(p.isSandbox),
-        },
-      });
-    } catch (err) {
-      return fail(`UC connection create failed: ${String(err).slice(0, 250)}`);
+    const options: Record<string, string> = {
+      client_id: p.clientId,
+      client_secret: p.clientSecret,
+      refresh_token: token.refresh_token,
+      instance_url: token.instance_url ?? "",
+      is_sandbox: String(p.isSandbox),
+    };
+    // The connector's supported option set varies by workspace version. On
+    // "does not support the following option(s): X, Y" strip those and retry.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await dbx.connectionCreate({
+          name: p.name,
+          connection_type: "SALESFORCE",
+          comment: "created by pipeline_factory (OAuth via app)",
+          options,
+        });
+        break;
+      } catch (err) {
+        const msg = String(err);
+        const m = /does not support the following option\(s\): ([^.]+)\./.exec(msg);
+        if (m?.[1] && attempt < 2) {
+          for (const key of m[1].split(",").map((s) => s.trim())) delete options[key];
+          continue;
+        }
+        return fail(`UC connection create failed: ${msg.slice(0, 250)}`);
+      }
     }
     return reply.redirect(`/?connected=${encodeURIComponent(p.name)}#settings`);
   });
