@@ -59,6 +59,24 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
     return `https://${host}`;
   };
 
+  /**
+   * The app SP owns connections it creates, so a human browsing Unity Catalog
+   * can't see them. Grant the runner/owner principal full privileges so the
+   * connection is visible in the UC UI AND usable by ingestion pipelines that
+   * run as that principal. Best-effort: a grant failure never blocks creation.
+   */
+  const shareConnection = async (name: string): Promise<void> => {
+    if (!cfg.PF_RUNNER_PRINCIPAL || !cfg.DATABRICKS_WAREHOUSE_ID) return;
+    try {
+      await dbx.sql(
+        `GRANT ALL PRIVILEGES ON CONNECTION \`${name}\` TO \`${cfg.PF_RUNNER_PRINCIPAL}\``,
+        cfg.DATABRICKS_WAREHOUSE_ID,
+      );
+    } catch (err) {
+      app.log.warn({ err }, `connection grant to ${cfg.PF_RUNNER_PRINCIPAL} failed`);
+    }
+  };
+
   app.get("/api/connections", async () => {
     const r = await dbx.connectionsList();
     return {
@@ -86,6 +104,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
         comment: body.comment || `created by pipeline_factory`,
         options: body.options,
       });
+      await shareConnection(body.name);
       return reply.code(201).send({ created: body.name });
     } catch (err) {
       return reply.code(422).send({ error: String(err).slice(0, 600) });
@@ -186,6 +205,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
         return fail(`UC connection create failed: ${msg.slice(0, 250)}`);
       }
     }
+    await shareConnection(p.name);
     return reply.redirect(`/?connected=${encodeURIComponent(p.name)}#settings`);
   });
 
