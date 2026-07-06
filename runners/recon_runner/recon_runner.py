@@ -62,8 +62,10 @@ def main():
     for c in compare_cols:
         src_expr = c["transform"] or f"src.`{c['name']}`"
         tgt_expr = f"tgt.`{c['target']}`"
+        # only apply a normalize expression that actually references `value`
+        # (LLMs sometimes emit a bare word like "lowercase" -> invalid SQL)
         norm = c.get("compare", {}).get("normalize")
-        if norm:
+        if norm and "value" in norm:
             src_expr = norm.replace("value", f"({src_expr})")
             tgt_expr = norm.replace("value", tgt_expr)
         tol = c.get("compare", {}).get("tolerance")
