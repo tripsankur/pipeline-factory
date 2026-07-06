@@ -11,6 +11,10 @@ const EnvSchema = z.object({
   PF_CATALOG: z.string().default("workspace"),
   PF_SCHEMA: z.string().default("ctl"),
   PF_GITHUB_REPO: z.string().default(""),
+  /** Databricks secret scope for source credentials (constraint #4) */
+  PF_SECRET_SCOPE: z.string().default("pipeline_factory"),
+  /** job id of the Salesforce REST ingestion runner (injected via app resource) */
+  PF_JOB_SFDC_INGEST: z.string().default(""),
   PF_TARGET: z.string().default("dev"),
   MAX_FIX_ITERATIONS: z.coerce.number().int().min(1).default(3),
   /** runner job ids (injected via app resources; empty = runner steps deferred) */

@@ -14,6 +14,10 @@ env:
     valueFrom: pipeline-runner-job
   - name: PF_JOB_RECON_RUNNER
     valueFrom: recon-runner-job
+  - name: PF_JOB_SFDC_INGEST
+    valueFrom: sfdc-ingest-job
+  - name: PF_SECRET_SCOPE
+    value: "pipeline_factory"
   - name: PF_RUNNER_PRINCIPAL
     value: "ankurtripathi.cs@gmail.com"
   - name: PF_GITHUB_REPO

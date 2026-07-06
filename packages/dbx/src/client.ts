@@ -139,6 +139,24 @@ export class DbxClient {
     return this.request("GET", "/api/2.0/preview/scim/v2/Me");
   }
 
+  // ---- Secrets ----
+
+  async secretScopeEnsure(scope: string): Promise<void> {
+    try {
+      await this.request("POST", "/api/2.0/secrets/scopes/create", {
+        scope,
+        initial_manage_principal: "users",
+      });
+    } catch (err) {
+      // already-exists is fine; anything else propagates
+      if (!String(err).includes("RESOURCE_ALREADY_EXISTS")) throw err;
+    }
+  }
+
+  async secretPut(scope: string, key: string, value: string): Promise<void> {
+    await this.request("POST", "/api/2.0/secrets/put", { scope, key, string_value: value });
+  }
+
   // ---- Unity Catalog connections ----
 
   async connectionsList(): Promise<{ connections?: { name: string; connection_type: string; comment?: string; created_at?: number }[] }> {

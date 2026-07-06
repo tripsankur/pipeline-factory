@@ -177,41 +177,35 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
       return fail(`token exchange failed: ${token.error ?? tokenRes.status} ${token.error_description ?? ""}`);
     }
 
-    // Credentials must never be stripped — a connection without them is useless.
-    const CREDENTIAL_KEYS = new Set(["client_id", "client_secret", "refresh_token", "oauth_refresh_token", "pkce_verifier"]);
-    const options: Record<string, string> = {
-      client_id: p.clientId,
-      client_secret: p.clientSecret,
-      refresh_token: token.refresh_token,
-      oauth_refresh_token: token.refresh_token,
-      instance_url: token.instance_url ?? "",
-      is_sandbox: String(p.isSandbox),
-    };
-    // The connector's supported option set varies by version. Strip ONLY
-    // rejected non-credential options and retry; a rejected credential is fatal
-    // (surface the connector's "Supported options: …" so we use the right keys).
-    for (let attempt = 0; attempt < 4; attempt++) {
-      try {
-        await dbx.connectionCreate({
-          name: p.name,
-          connection_type: "SALESFORCE",
-          comment: "created by pipeline_factory (OAuth via app)",
-          options,
-        });
-        break;
-      } catch (err) {
-        const msg = String(err);
-        const m = /does not support the following option\(s\): ([^.]+?)\./.exec(msg);
-        const rejected = m?.[1]?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
-        const strippable = rejected.filter((k) => !CREDENTIAL_KEYS.has(k) && k in options);
-        if (strippable.length > 0 && attempt < 3) {
-          for (const key of strippable) delete options[key];
-          continue;
-        }
-        return fail(`UC connection create failed: ${msg.slice(0, 400)}`);
-      }
+    // Store the OAuth credentials in a Databricks SECRET SCOPE (constraint #4:
+    // no plaintext creds in connection options, code, or app state beyond
+    // transit). The ingestion runner reads them from the scope at run time.
+    // Databricks' managed SALESFORCE connector silently drops injected OAuth
+    // fields (it wants Databricks-UI OAuth), so the secret scope is the store.
+    try {
+      await dbx.secretScopeEnsure(cfg.PF_SECRET_SCOPE);
+      const prefix = `sfdc_${p.name}`;
+      await dbx.secretPut(cfg.PF_SECRET_SCOPE, `${prefix}_client_id`, p.clientId);
+      await dbx.secretPut(cfg.PF_SECRET_SCOPE, `${prefix}_client_secret`, p.clientSecret);
+      await dbx.secretPut(cfg.PF_SECRET_SCOPE, `${prefix}_refresh_token`, token.refresh_token);
+      await dbx.secretPut(cfg.PF_SECRET_SCOPE, `${prefix}_instance_url`, token.instance_url ?? "");
+      await dbx.secretPut(cfg.PF_SECRET_SCOPE, `${prefix}_login_host`, p.loginHost);
+    } catch (err) {
+      return fail(`storing credentials in secret scope failed: ${String(err).slice(0, 250)}`);
     }
-    await shareConnection(p.name);
+    // Register the source as a lightweight UC connection for discoverability
+    // (metadata only — no creds). Best-effort.
+    try {
+      await dbx.connectionCreate({
+        name: p.name,
+        connection_type: "SALESFORCE",
+        comment: `created by pipeline_factory · creds in secret scope ${cfg.PF_SECRET_SCOPE}`,
+        options: { is_sandbox: String(p.isSandbox) },
+      });
+      await shareConnection(p.name);
+    } catch {
+      // connection is optional metadata; secrets are the source of truth
+    }
     return reply.redirect(`/?connected=${encodeURIComponent(p.name)}#settings`);
   });
 
@@ -222,6 +216,28 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
   app.post("/api/ingestion", async (req, reply) => {
     const body = IngestionBody.parse(req.body);
     const name = `brnz_${body.source_system}_batch`;
+    const sfdcJob = Number(cfg.PF_JOB_SFDC_INGEST);
+    // Salesforce: use the app's REST ingest runner (OAuth creds from the secret
+    // scope). The managed SALESFORCE connector can't take an app-injected token.
+    if (body.source_system === "sfdc" && sfdcJob) {
+      try {
+        const tablesJson = JSON.stringify(
+          body.tables.map((t) => ({
+            object: t.source_object,
+            destination: `${body.destination_catalog}.${body.destination_schema}.${body.source_system}_${t.source_object.toLowerCase()}`,
+          })),
+        );
+        const { run_id } = await dbx.jobRunNow(sfdcJob, {
+          secret_scope: cfg.PF_SECRET_SCOPE,
+          conn: body.connection_name,
+          tables_json: tablesJson,
+        });
+        return reply.code(201).send({ mode: "runner", run_id, name });
+      } catch (err) {
+        return reply.code(422).send({ error: String(err).slice(0, 800) });
+      }
+    }
+    // Other sources: managed Lakeflow Connect ingestion pipeline.
     try {
       const { pipeline_id } = await dbx.pipelineCreate({
         name,
@@ -243,17 +259,21 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
         },
       });
       const { update_id } = await dbx.pipelineStartUpdate(pipeline_id);
-      return reply.code(201).send({ pipeline_id, update_id, name });
+      return reply.code(201).send({ mode: "pipeline", pipeline_id, update_id, name });
     } catch (err) {
       return reply.code(422).send({ error: String(err).slice(0, 800) });
     }
   });
 
-  app.get("/api/ingestion/:pipelineId", async (req) => {
-    const { pipelineId } = req.params as { pipelineId: string };
-    const p = await dbx.pipelineGet(pipelineId);
-    return { name: p.name, state: p.state, latest: p.latest_updates?.[0] ?? null };
+  /** Ingestion status: runner job run or managed pipeline. */
+  app.get("/api/ingestion/:id", async (req) => {
+    const { id } = req.params as { id: string };
+    const { mode } = req.query as { mode?: string };
+    if (mode === "runner") {
+      const run = await dbx.jobGetRun(Number(id));
+      return { mode, state: run.state.life_cycle_state, result: run.state.result_state ?? null };
+    }
+    const p = await dbx.pipelineGet(id);
+    return { mode: "pipeline", name: p.name, state: p.state, latest: p.latest_updates?.[0] ?? null };
   });
-
-  void cfg;
 }
