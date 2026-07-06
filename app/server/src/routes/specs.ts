@@ -5,17 +5,20 @@ import { SpecLlmSchema, SpecSchema, type Spec } from "@pf/core";
 import {
   CsvContractAdapter,
   DocxContractAdapter,
+  StructuredContractAdapter,
   SPEC_SYSTEM_PROMPT,
   buildSpecUserPrompt,
   type FmapiClient,
   type ParsedContract,
 } from "@pf/adapters";
+import { contractAudit } from "@pf/core";
 import type { RegistryClient } from "../lib/registry-client.js";
 import { identityFrom } from "../lib/identity.js";
 import type { AppConfig } from "../config.js";
 
 const csvAdapter = new CsvContractAdapter();
 const docxAdapter = new DocxContractAdapter();
+const structuredAdapter = new StructuredContractAdapter();
 
 const GenerateBody = z.object({
   contract: z.object({
@@ -37,6 +40,10 @@ const GenerateBody = z.object({
   sourceEntity: z.string().min(1),
   targetEntity: z.string().min(1),
   crosswalkTable: z.string().min(1),
+  /** structured-contract extras: authoritative over LLM output where present */
+  mode: z.enum(["snapshot", "incremental", "cdc"]).optional(),
+  cursorColumn: z.string().nullish(),
+  audit: z.record(z.string(), z.unknown()).optional(),
 });
 
 const ApproveBody = z.object({
@@ -50,18 +57,42 @@ export function registerSpecRoutes(
   fmapi: FmapiClient,
   cfg: AppConfig,
 ): void {
-  /** Contract intake: multipart file -> parsed schema preview. */
+  /**
+   * Contract intake: multipart file -> parsed schema preview.
+   * Structured Interface Contract v1 (.yaml/.json) yields the whole source
+   * (validated, multi-table); CSV/DOCX remain the free-form single-entity path.
+   */
   app.post("/api/contracts/parse", async (req, reply) => {
     const file = await (req as unknown as { file: () => Promise<{ filename: string; toBuffer: () => Promise<Buffer> } | undefined> }).file();
     if (!file) return reply.code(400).send({ error: "no file uploaded" });
     const buf = await file.toBuffer();
-    const name = file.filename;
-    const adapter = name.toLowerCase().endsWith(".docx") ? docxAdapter : csvAdapter;
+    const name = file.filename.toLowerCase();
     try {
-      const contract = await adapter.parse(buf, name);
-      return { contract };
+      if (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".json")) {
+        const result = structuredAdapter.parse(buf, name);
+        return {
+          kind: "structured",
+          contract_info: {
+            ...contractAudit(result.contract),
+            name: result.contract.contract.name,
+            batch_schedule: result.contract.ingestion.batch_schedule,
+            connectivity: Object.fromEntries(
+              Object.entries(result.contract.connectivity).map(([env, e]) => [
+                env,
+                `${e.protocol}://${e.host}:${e.port} (auth: ${e.auth_method}, secrets: ${e.secret_scope})`,
+              ]),
+            ),
+          },
+          tables: result.tables,
+          audit: contractAudit(result.contract),
+        };
+      }
+      const adapter = name.endsWith(".docx") ? docxAdapter : csvAdapter;
+      const contract = await adapter.parse(buf, file.filename);
+      return { kind: "freeform", contract };
     } catch (err) {
-      return reply.code(422).send({ error: String(err) });
+      // zod issues carry field paths — return them verbatim for the uploader
+      return reply.code(422).send({ error: String(err).slice(0, 4000) });
     }
   });
 
@@ -85,8 +116,19 @@ export function registerSpecRoutes(
       schema: SpecLlmSchema,
       schemaName: "mapping_spec",
     });
-    // never trust the model with identity fields; evidence is server-owned
-    const finalSpec: Spec = { ...spec, spec_id: specId, spec_version: 1, evidence: {} };
+    // never trust the model with identity fields; evidence is server-owned.
+    // Contract-declared ingestion facts override LLM guesses.
+    const finalSpec: Spec = {
+      ...spec,
+      spec_id: specId,
+      spec_version: 1,
+      ingestion: {
+        ...spec.ingestion,
+        ...(body.mode ? { mode: body.mode } : {}),
+        ...(body.cursorColumn !== undefined ? { cursor_column: body.cursorColumn ?? null } : {}),
+      },
+      evidence: body.audit ? { contract: body.audit } : {},
+    };
     await registry.insertSpec(finalSpec, user.email);
     return reply.code(201).send({ spec: finalSpec });
   });

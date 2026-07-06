@@ -1,0 +1,88 @@
+# Example filled Interface Contract — aLDM source (Galileo migration, customer #1)
+contract:
+  format_version: 1
+  id: IC-ALDM-001
+  name: Amdocs aLDM billing entities
+  version: 1
+
+source:
+  system: aldm
+  kind: rdbms
+  owner_team: Billing Platform
+  owner_email: billing-platform@example.com
+
+connectivity:
+  dev:
+    host: 10.20.30.40
+    port: 1521
+    protocol: jdbc
+    auth_method: basic
+    secret_scope: src_aldm_dev
+    namespace: ALDMDEV
+    notes: reachable from the dev VPC only
+  prod:
+    host: aldm-db.prod.example.com
+    port: 1521
+    protocol: jdbc
+    auth_method: kerberos
+    secret_scope: src_aldm_prod
+    namespace: ALDMPRD
+    notes: change window Sundays 02:00-04:00 UTC
+
+ingestion:
+  default_mode: snapshot
+  batch_schedule: "0 0 2 * * ?"
+
+target:
+  system: salesforce_comms
+  catalog: workspace
+  bronze_schema: bronze
+  silver_schema: silver
+
+tables:
+  - name: contract_account
+    description: Billing account master
+    primary_key: [account_id]
+    columns:
+      - name: account_id
+        type: VARCHAR(18)
+        nullable: false
+        description: Primary account identifier
+      - name: status_cd
+        type: CHAR(1)
+        nullable: true
+        description: "Account status"
+        enum_values: ["A", "I"]
+      - name: balance_amt
+        type: VARCHAR(20)
+        nullable: true
+        description: Account balance as string decimal
+      - name: created_dt
+        type: DATE
+        nullable: false
+        description: Account open date
+
+  - name: service_point
+    description: Physical service delivery points
+    primary_key: [service_point_id]
+    mode: incremental
+    cursor_column: updated_ts
+    expected_daily_rows: 50000
+    columns:
+      - name: service_point_id
+        type: VARCHAR(20)
+        nullable: false
+        description: Service point identifier
+      - name: account_id
+        type: VARCHAR(18)
+        nullable: false
+        description: Owning account
+      - name: address_line
+        type: VARCHAR(240)
+        nullable: true
+        description: Street address
+        pii: true
+      - name: updated_ts
+        type: TIMESTAMP
+        nullable: false
+        description: Last modification timestamp

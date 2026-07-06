@@ -147,8 +147,40 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface ParsedTableContract extends ParsedContract {
+  table: string;
+  mode: "snapshot" | "incremental" | "cdc";
+  cursorColumn: string | null;
+  primaryKey: string[];
+  suggested: {
+    sourceEntity: string;
+    targetEntity: string;
+    crosswalkTable: string;
+    sourceSystem: string;
+    targetSystem: string;
+  };
+}
+
+export type ParseResponse =
+  | { kind: "freeform"; contract: ParsedContract }
+  | {
+      kind: "structured";
+      contract_info: {
+        contract_id: string;
+        contract_version: number;
+        source_system: string;
+        owner: string;
+        name: string;
+        batch_schedule: string;
+        environments: string[];
+        connectivity: Record<string, string>;
+      };
+      tables: ParsedTableContract[];
+      audit: Record<string, unknown>;
+    };
+
 export const api = {
-  parseContract: async (file: File): Promise<{ contract: ParsedContract }> => {
+  parseContract: async (file: File): Promise<ParseResponse> => {
     const fd = new FormData();
     fd.append("file", file);
     return json(await fetch("/api/contracts/parse", { method: "POST", body: fd }));
@@ -160,6 +192,9 @@ export const api = {
     sourceEntity: string;
     targetEntity: string;
     crosswalkTable: string;
+    mode?: string;
+    cursorColumn?: string | null;
+    audit?: Record<string, unknown>;
   }): Promise<{ spec: Spec }> =>
     json(
       await fetch("/api/specs/generate", {

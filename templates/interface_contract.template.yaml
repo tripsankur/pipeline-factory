@@ -1,0 +1,64 @@
+# ══════════════════════════════════════════════════════════════════════════
+# Pipeline Factory — Interface Contract v1 (fill every MANDATORY field)
+# One contract = one source system + ALL tables to pull from it.
+# Upload this file on the Contract intake screen (.yaml).
+# ══════════════════════════════════════════════════════════════════════════
+
+contract:
+  format_version: 1                # fixed
+  id: ""                           # MANDATORY, e.g. IC-ALDM-001
+  name: ""                         # MANDATORY, human title
+  version: 1                       # bump on every change
+
+source:
+  system: ""                       # MANDATORY slug, e.g. aldm (drives brnz_{system}_batch)
+  kind: rdbms                      # rdbms | api | file | stream
+  owner_team: ""                   # MANDATORY
+  owner_email: ""                  # MANDATORY
+
+# MANDATORY: dev AND prod. Credentials NEVER go in this file —
+# point at the Databricks secret scope that holds them.
+connectivity:
+  dev:
+    host: ""                       # hostname or IP, e.g. 10.20.30.40
+    port: 1521
+    protocol: jdbc                 # jdbc | https | sftp | kafka | odbc | other
+    auth_method: oauth_m2m         # oauth_m2m | basic | token | kerberos | certificate | iam
+    secret_scope: ""               # e.g. src_aldm_dev
+    namespace: ""                  # database / base path / topic prefix
+    notes: ""
+  prod:
+    host: ""
+    port: 1521
+    protocol: jdbc
+    auth_method: oauth_m2m
+    secret_scope: ""
+    namespace: ""
+    notes: ""
+
+ingestion:
+  default_mode: snapshot           # snapshot | incremental | cdc (tables may override)
+  batch_schedule: "0 0 2 * * ?"    # quartz cron for the source's ONE batch
+  file_format: ""                  # only for kind=file
+
+target:                            # optional hints
+  system: ""                       # e.g. salesforce_comms
+  catalog: workspace
+  bronze_schema: bronze
+  silver_schema: silver
+
+tables:                            # MANDATORY, one entry per table — full schema each
+  - name: ""                       # slug, e.g. contract_account
+    description: ""
+    primary_key: [""]              # MANDATORY, >=1 column
+    mode: snapshot                 # optional override; incremental requires cursor_column
+    cursor_column: null
+    expected_daily_rows: null
+    columns:                       # MANDATORY, every column, typed
+      - name: ""
+        type: ""                   # source-native type, e.g. VARCHAR(18) — MANDATORY
+        nullable: true
+        description: ""
+        pii: false
+        sample: null
+        enum_values: []            # closed enumerations, e.g. ["A", "I"]

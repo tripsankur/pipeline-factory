@@ -7,6 +7,7 @@ export * from "./contracts/types.js";
 export * from "./contracts/csv.js";
 export * from "./contracts/docx.js";
 export * from "./contracts/confluence.js";
+export * from "./contracts/structured.js";
 export * from "./transport/types.js";
 export * from "./llm/fmapi.js";
 export * from "./llm/prompts.js";
