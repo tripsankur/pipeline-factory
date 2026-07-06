@@ -24,14 +24,20 @@ from pyspark.sql import SparkSession
 def http_post_form(url, data):
     body = urllib.parse.urlencode(data).encode()
     req = urllib.request.Request(url, data=body, method="POST")
-    with urllib.request.urlopen(req) as r:
-        return json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"POST {url} -> {e.code}: {e.read().decode()[:500]}") from None
 
 
 def http_get(url, token):
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-    with urllib.request.urlopen(req) as r:
-        return json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"GET {url[:120]} -> {e.code}: {e.read().decode()[:500]}") from None
 
 
 def main():
@@ -62,14 +68,35 @@ def main():
     access_token = tok["access_token"]
     instance_url = tok.get("instance_url") or secret("instance_url")
 
+    # Salesforce may ROTATE the refresh token on each grant (issuing a new one and
+    # expiring the old). Persist any rotated token back to the secret scope so the
+    # next run stays valid — self-healing, no re-consent needed.
+    new_rt = tok.get("refresh_token")
+    if new_rt:
+        try:
+            from databricks.sdk import WorkspaceClient
+
+            WorkspaceClient().secrets.put_secret(
+                scope=args.secret_scope, key=f"sfdc_{args.conn}_refresh_token", string_value=new_rt
+            )
+            print("rotated refresh token persisted to secret scope")
+        except Exception as e:  # non-fatal: this run still has a valid access token
+            print(f"warn: could not persist rotated refresh token: {e}")
+
     tables = json.loads(args.tables_json)
     results = []
     for t in tables:
         obj, dest = t["object"], t["destination"]
 
-        # discover fields from the object describe
+        # discover selectable scalar fields from the object describe (exclude
+        # compound/binary types that aren't valid in a flat SOQL SELECT)
+        SKIP = {"address", "location", "base64", "complexvalue"}
         desc = http_get(f"{instance_url}/services/data/v60.0/sobjects/{obj}/describe", access_token)
-        fields = [f["name"] for f in desc["fields"] if f.get("type") not in ("address", "location")]
+        fields = [
+            f["name"]
+            for f in desc["fields"]
+            if f.get("type") not in SKIP and f.get("calculated") is not True
+        ]
 
         # page through all records via SOQL
         soql = f"SELECT {', '.join(fields)} FROM {obj}"
@@ -83,10 +110,9 @@ def main():
             nxt = page.get("nextRecordsUrl")
             url = f"{instance_url}{nxt}" if nxt else None
 
-        if rows:
-            df = spark.createDataFrame(rows)
-        else:
-            df = spark.createDataFrame([], schema=", ".join(f"{f} STRING" for f in fields))
+        # explicit all-STRING schema — never infer (all-null columns break inference)
+        schema = ", ".join(f"`{f}` STRING" for f in fields)
+        df = spark.createDataFrame(rows, schema=schema)
         df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(dest)
         spark.sql(
             f"""ALTER TABLE {dest} SET TBLPROPERTIES (
