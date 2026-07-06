@@ -1,11 +1,17 @@
 # Interface Contract — Salesforce sample org as SOURCE (Lakeflow Connect managed connector).
 # Connectivity note: the managed connector authenticates via a Unity Catalog Connection
 # (OAuth). secret_scope carries the UC connection name using the `uc:` prefix convention.
+#
+# v1.1: columns should come from SCHEMA DISCOVERY (Intake → Discover source schema pulls
+# the true field list — e.g. 68 Account fields — and exports contract-ready YAML). Prune
+# by marking columns `selected: false` (PKs must stay selected); tag the table with
+# `schema_source: discovered`. Hand-typed subsets drift from reality — that is exactly
+# the bug discovery exists to kill.
 contract:
-  format_version: 1
+  format_version: 1.1
   id: IC-SFDC-001
   name: Salesforce sample org core objects
-  version: 1
+  version: 2
 
 source:
   system: sfdc
@@ -46,6 +52,7 @@ tables:
     source_object: Account
     description: Salesforce Account object
     primary_key: [Id]
+    schema_source: discovered   # column list pulled via Intake → Discover source schema
     columns:
       - name: Id
         type: id

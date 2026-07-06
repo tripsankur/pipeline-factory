@@ -1,63 +1,76 @@
 # Pipeline Factory
 
-Builds complete ingestion pipelines from natural-language interface contracts. An LLM
-(Databricks FMAPI) turns a contract (CSV/DOCX) into a structured mapping **spec**; a human
-approves it; a deterministic renderer stamps artifacts (ingestion config, silver stitch SQL,
-adapter view, expectations, recon job, tests); the factory opens a PR with evidence.
-Promotion beyond the PR belongs to your CI — see `docs/CICD_CONTRACT.md`.
+A Databricks App that turns interface contracts into complete, reviewed,
+reconciled ingestion pipelines — **LLM for specs, metadata for behavior, one
+static engine for execution, humans at every gate**.
 
-## Hard rules (never break)
+Live (dev): https://pipeline-factory-7474658437363349.aws.databricksapps.com
 
-1. LLM output is the spec (or a spec delta), never a file — ADR-001.
-2. Fix loop edits the spec, re-renders, re-deploys. Max `MAX_FIX_ITERATIONS`, then `needs_human`.
-3. The app never deploys to prod. Dev target only.
-4. No secrets in code, spec, or git.
-5. Every generated asset is tagged (`generated_by`, `spec_id`, `spec_version`).
-6. Registry Delta tables (`workspace.ctl.*`) are the single source of truth; app is stateless.
-7. Two human gates always: spec approval, PR merge.
-8. Adapter pattern at every boundary (`packages/adapters`).
+## How it works
 
-## Local dev
+```
+Interface Contract (v1.1, schema-discovered)
+      │  FMAPI LLM — structured output, spec JSON only (prompts are user-visible)
+      ▼
+Mapping spec ── human review + approval (gate 1)
+      │  deterministic renderer — METADATA only, golden-file gated
+      ▼
+metadata/{source}/{entity}/dataflow.yml + resources/{source}.pipeline.yml
+      │  MERGE → ctl.dataflow_spec (tombstoned, never deleted)
+      ▼
+Standard Lakeflow assets (app-provisioned, idempotent):
+  brnz_{source}_ingest   Lakeflow Connect ingestion pipeline  (source → bronze)
+  slvr_{source}_etl      SDP pipeline running the framework engine (bronze → silver + DQ)
+  {source}_workflow      workflow: ingest → etl, cron from the contract
+      │  recon: key / row / attribute rates + record diffs
+      ▼
+Metadata-only PR with EVIDENCE.md ── human merge (gate 2) → customer CI promotes
+```
+
+Executable code lives once in
+[`databricks-ingestion-framework`](https://github.com/tripsankur/databricks-ingestion-framework)
+(semver). Per-source PRs to
+[`databricks-brnz-ingestion`](https://github.com/tripsankur/databricks-brnz-ingestion)
+carry zero code.
+
+## Monorepo
+
+| path | what |
+|---|---|
+| `app/server` | Fastify API + SSE build console; store layer (Lakebase pg / warehouse fallback) |
+| `app/client` | React SPA, DuBois (Databricks) design tokens |
+| `packages/core` | spec + contract zod schemas, renderer, dataflow-spec mapping, registry DDL |
+| `packages/adapters` | FMAPI structured-output client + prompts, contract parsers, CicdAdapter (GitHub/mock) |
+| `packages/dbx` | thin typed Databricks REST client (SQL, jobs, pipelines, secrets, UC) |
+| `templates/` | nunjucks metadata templates (dataflow.yml, source pipeline resources) |
+| `tests/golden` | byte-stability gate for rendered metadata |
+| `docs/` | ARCHITECTURE, ADR/001–010, LAKEBASE, CONTRACT_FORMAT, CICD_CONTRACT, design/ |
+
+## Develop
 
 ```bash
 pnpm install
-pnpm exec tsc -b && pnpm --filter @pf/client build
-# terminal 1 — server on :8300 against the real workspace
-DATABRICKS_HOST=https://<workspace> \
-DATABRICKS_TOKEN=$(databricks auth token --profile DEFAULT | jq -r .access_token) \
-DATABRICKS_WAREHOUSE_ID=<id> DATABRICKS_APP_PORT=8300 \
-PF_DEV_USER_EMAIL=you@example.com \
-pnpm --filter @pf/server exec tsx src/index.ts
-# terminal 2 — Vite dev client on :5173 (proxies /api)
-pnpm --filter @pf/client dev
+pnpm -r build          # typecheck + build all workspaces
+pnpm vitest run        # unit + golden tests
+pnpm dev               # local server + client (profile auth)
 ```
 
-## Test
+Deploy (dev target only — constraint #3):
 
 ```bash
-pnpm test              # unit + golden files
-UPDATE_GOLDEN=1 pnpm test   # regenerate goldens — ONLY with explicit approval (breaking change)
+pnpm bundle:app                      # esbuild server + vite client → app/deploy/dist
+databricks bundle deploy -t dev
+databricks bundle run pipeline_factory
 ```
 
-## Deploy (dev target only)
+One-time workspace setup: `docs/LAKEBASE.md` (postgres project + synced tables),
+framework bundle deploy (see the framework repo), grants listed in the in-app
+Documentation page.
 
-```bash
-pnpm exec tsc -b && pnpm --filter @pf/client build && node scripts/bundle-app.mjs
-databricks bundle deploy -t dev --profile DEFAULT
-databricks bundle run pipeline_factory -t dev --profile DEFAULT
-```
+## The rules that don't move
 
-One-time workspace setup (admin): create the registry schema and grant the app SP —
-
-```sql
-CREATE SCHEMA IF NOT EXISTS workspace.ctl;
-GRANT USE CATALOG ON CATALOG workspace TO `<app-sp-client-id>`;
-GRANT ALL PRIVILEGES ON SCHEMA workspace.ctl TO `<app-sp-client-id>`;
-```
-
-## Notes for this workspace
-
-- Claude FMAPI endpoints are rate-limited to 0 (trial); `PF_LLM_ENDPOINT` defaults to
-  `databricks-llama-4-maverick`. Swap via env/bundle var when Claude is enabled.
-- GitHub adapter targets `databricks-brnz-ingestion`; until a PAT lands in secret scope
-  `pipeline_factory` (key `github_token`), the mock CI/CD adapter is active.
+LLM output is always a spec or a spec-delta, never a file. Files are metadata,
+never code. The app never touches prod. Secrets live in scopes/connections.
+Everything generated is tagged. Two human gates, plus an explicit decommission
+confirmation (tombstones — ADR-010). Full list with amendments:
+`docs/ARCHITECTURE.md`.

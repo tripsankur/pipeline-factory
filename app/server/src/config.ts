@@ -13,8 +13,6 @@ const EnvSchema = z.object({
   PF_GITHUB_REPO: z.string().default(""),
   /** Databricks secret scope for source credentials (constraint #4) */
   PF_SECRET_SCOPE: z.string().default("pipeline_factory"),
-  /** job id of the Salesforce REST ingestion runner (injected via app resource) */
-  PF_JOB_SFDC_INGEST: z.string().default(""),
   PF_TARGET: z.string().default("dev"),
   MAX_FIX_ITERATIONS: z.coerce.number().int().min(1).default(3),
   /** workspace path of the deployed framework engine files (ADR-008/009) */
@@ -25,9 +23,6 @@ const EnvSchema = z.object({
   PF_FRAMEWORK_RECON_JOB_NAME: z.string().default("pf-framework-recon"),
   /** engine version floor written into every dataflow_spec row */
   PF_FRAMEWORK_MIN_VERSION: z.string().default("1.0.0"),
-  /** DEPRECATED (superseded by framework jobs; removed in Phase 7) */
-  PF_JOB_PIPELINE_RUNNER: z.string().default(""),
-  PF_JOB_RECON_RUNNER: z.string().default(""),
   /**
    * Principal the runner jobs execute as (bundle deployer in dev mode). When set,
    * the boot migration grants it SELECT+MODIFY on the registry tables the app SP

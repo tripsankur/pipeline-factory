@@ -240,31 +240,13 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
    * One-click ingestion: managed Lakeflow Connect pipeline pulling ALL listed
    * objects through the connection into bronze — the source's single batch.
    */
+  /** Ad-hoc ingestion: ALWAYS a managed Lakeflow Connect ingestion pipeline
+   *  (ADR-009 — Databricks-standard primitives; the old REST runner path is
+   *  retired). Requires a working UC connection (for Salesforce that means the
+   *  one-time OAuth U2M consent in Catalog Explorer). */
   app.post("/api/ingestion", async (req, reply) => {
     const body = IngestionBody.parse(req.body);
-    const name = `brnz_${body.source_system}_batch`;
-    const sfdcJob = Number(cfg.PF_JOB_SFDC_INGEST);
-    // Salesforce: use the app's REST ingest runner (OAuth creds from the secret
-    // scope). The managed SALESFORCE connector can't take an app-injected token.
-    if (body.source_system === "sfdc" && sfdcJob) {
-      try {
-        const tablesJson = JSON.stringify(
-          body.tables.map((t) => ({
-            object: t.source_object,
-            destination: `${body.destination_catalog}.${body.destination_schema}.${body.source_system}_${t.source_object.toLowerCase()}`,
-          })),
-        );
-        const { run_id } = await dbx.jobRunNow(sfdcJob, {
-          secret_scope: cfg.PF_SECRET_SCOPE,
-          conn: body.connection_name,
-          tables_json: tablesJson,
-        });
-        return reply.code(201).send({ mode: "runner", run_id, name });
-      } catch (err) {
-        return reply.code(422).send({ error: String(err).slice(0, 800) });
-      }
-    }
-    // Other sources: managed Lakeflow Connect ingestion pipeline.
+    const name = `brnz_${body.source_system}_ingest`;
     try {
       const { pipeline_id } = await dbx.pipelineCreate({
         name,
@@ -284,6 +266,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
             },
           })),
         },
+        tags: { generated_by: "pipeline_factory" },
       });
       const { update_id } = await dbx.pipelineStartUpdate(pipeline_id);
       return reply.code(201).send({ mode: "pipeline", pipeline_id, update_id, name });
@@ -292,14 +275,9 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
     }
   });
 
-  /** Ingestion status: runner job run or managed pipeline. */
+  /** Ingestion pipeline status. */
   app.get("/api/ingestion/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const { mode } = req.query as { mode?: string };
-    if (mode === "runner") {
-      const run = await dbx.jobGetRun(Number(id));
-      return { mode, state: run.state.life_cycle_state, result: run.state.result_state ?? null };
-    }
     const p = await dbx.pipelineGet(id);
     return { mode: "pipeline", name: p.name, state: p.state, latest: p.latest_updates?.[0] ?? null };
   });

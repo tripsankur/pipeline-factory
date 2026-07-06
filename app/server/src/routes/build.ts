@@ -1,17 +1,13 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
-import { createRenderer, fq } from "@pf/core";
+import { createRenderer } from "@pf/core";
 import { GitHubCicdAdapter, MockCicdAdapter, type CicdAdapter, type FmapiClient } from "@pf/adapters";
 import type { DbxClient } from "@pf/dbx";
 import type { RegistryStore } from "../lib/store/types.js";
 import { executeBuild, type BuildEvent } from "../lib/build-executor.js";
 import { resolveTemplatesDir } from "./render.js";
 import type { AppConfig } from "../config.js";
-
-function lit(v: string | null): string {
-  return v === null ? "NULL" : `'${v.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
 
 export function makeCicdAdapter(cfg: AppConfig): CicdAdapter {
   const token = process.env.GITHUB_TOKEN ?? "";
@@ -77,12 +73,6 @@ export function registerBuildRoutes(
 
   app.get("/api/specs/:id/builds", async (req) => {
     const { id } = req.params as { id: string };
-    const rows = await dbx.sqlRows(
-      `SELECT run_id, phase, status, fix_iteration, branch, pr_url, detail,
-              CAST(started_at AS STRING) AS started_at, CAST(finished_at AS STRING) AS finished_at
-       FROM ${fq(cfg.registry, "build_runs")} WHERE spec_id = ${lit(id)} ORDER BY started_at DESC LIMIT 50`,
-      cfg.DATABRICKS_WAREHOUSE_ID,
-    );
-    return { builds: rows };
+    return { builds: await registry.listBuilds(id, 50) };
   });
 }

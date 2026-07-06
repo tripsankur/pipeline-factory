@@ -1,72 +1,74 @@
-# Pipeline Factory — Architecture
+# Architecture (v2)
 
-A Node.js/TypeScript Databricks App that turns natural-language interface contracts into
-complete, reviewed, reconciled ingestion pipelines. Product, not one-off tool: CI/CD-agnostic
-(ADR-003), transport-pluggable, prompt-driven (ADR-004). The Galileo migration is customer #1.
+Diagrams: `docs/design/architecture-v2.md` (Lucid — C4 context/containers, data
+architecture, build sequence). Decisions: `docs/ADR/` (001–010).
 
-## The one rule everything hangs on
+## The one-sentence version
 
-**The LLM produces specs; the renderer produces files** (ADR-001). LLM-authored SQL lives
-*inside* the spec as `transform` values a human approves cell-by-cell. The fix loop edits
-the spec and re-renders — it can not touch files (ADR-002/constraint #2).
+An LLM turns interface contracts into **specs**; a deterministic renderer turns
+specs into **metadata**; a static, versioned **framework engine** executes that
+metadata through standard Databricks primitives — ingestion pipeline → ETL
+pipeline → workflow — with recon evidence and human gates around everything.
 
-## Data flow
+## Two repos, two planes (ADR-008)
 
-```
-contract (CSV/DOCX)                                   [adapters/contracts]
-  → parsed schema preview                             [app UI: Intake]
-  → FMAPI structured output → zod-validated Spec      [adapters/llm, packages/core spec.ts]
-  → human review + approval  (GATE #1)                [app UI: Mapping]
-  → renderer: (spec) -> files[]                       [packages/core renderer.ts + templates/]
-  → branch + commit + factory.manifest.yml            [adapters/cicd — GitHub or mock]
-  → stage artifacts to ctl.staged_artifacts           [build-executor "deploy_dev"; ADR-006]
-  → pf-pipeline-runner job: execute SQL + expectations[runners/pipeline_runner]
-  → pf-recon-runner job: count/key/attr compare       [runners/recon_runner → ctl.recon_*]
-  → (failure) fix loop: LLM SpecDelta → re-render     [bounded MAX_FIX_ITERATIONS → needs_human]
-  → PR with EVIDENCE.md (recon rates, fix timeline)   (GATE #2 — merge is human, always)
-  → customer CI verifies manifest checksums           [docs/CICD_CONTRACT.md]
-```
+| | code plane | metadata plane |
+|---|---|---|
+| lives in | `tripsankur/databricks-ingestion-framework` | `ctl.dataflow_spec` rows + metadata-only PRs to `tripsankur/databricks-brnz-ingestion` |
+| changes when | engine improves (semver) | a source/entity is onboarded or fixed |
+| written by | humans, reviewed | Pipeline Factory (LLM spec → renderer), reviewed |
+| contents | generic SDP engine, generic recon job (entry point + key/row/attribute compare), sfdc describe adapter | dataflow.yml per entity + thin resources/{source}.pipeline.yml + manifest + evidence |
 
-Live progress streams to the build console over SSE (`/api/specs/:id/build/stream`).
+Generated code no longer exists — the class of bug where per-source rendered
+code drifts from the real engine (found by external review on PRs #1–#4) is
+structurally impossible.
 
-## State
+## Standard Lakeflow assets per source (ADR-009)
 
-`{catalog}.ctl` Delta tables are the single source of truth (constraint #6); the app is
-stateless and restartable. Tables: `spec_registry`, `spec_versions` (append-only spec JSON),
-`build_runs`, `recon_runs`, `recon_entity_result`, `recon_record_diff`, `llm_calls`,
-`feature_events` (coming-soon click tracking), `staged_artifacts` (runner input, ADR-006).
-Boot migration is idempotent; it also grants the runner principal SELECT+MODIFY on tables
-the app SP owns (`PF_RUNNER_PRINCIPAL`).
+1. `brnz_{source}_ingest` — **Lakeflow Connect managed ingestion pipeline**
+   (`ingestion_definition`: connection, objects, `include_columns` from the
+   contract, SCD). Sources without a managed connector use the engine's
+   Auto Loader path instead.
+2. `slvr_{source}_etl` — **SDP declarative pipeline** running the framework
+   engine (`libraries: glob → engine`, `configuration: pf.source/pf.spec_table`);
+   factory-loops the active `dataflow_spec` rows into bronze→silver stitches with
+   DQ expectations.
+3. `{source}_workflow` — **Lakeflow Job**: pipeline_task(ingest) →
+   pipeline_task(etl); cron from the contract's `batch_schedule`. Scheduled runs
+   need no app and no tokens.
 
-## Packages
+The app provisions all three idempotently at build time (find-by-name, tagged
+`generated_by=pipeline_factory`), guarded by ADR-010 tombstone semantics: spec
+rows are never deleted, the engine reads only `is_active`, and a build that
+would implicitly drop a managed dataset fails the drop-guard instead.
 
-| Path | Role |
-|---|---|
-| `packages/core` | domain: zod spec + delta, renderer, manifest, evidence, registry DDL, feature flags |
-| `packages/dbx` | typed fetch client: SQL Statement Execution, Jobs, Files, Serving; M2M OAuth/PAT |
-| `packages/adapters` | boundaries: cicd (github/mock/+stubs), contracts (csv/docx/+stub), transport, llm (FMAPI) |
-| `app/server` | Fastify: routes, SSE, identity from forwarded headers, build executor |
-| `app/client` | React+Vite per Claude Design tokens (`theme/tokens.css`), dark-first |
-| `runners/` | Python serverless jobs (in-bundle): pipeline execution + reconciliation |
-| `templates/` | nunjucks artifact templates (golden-file gated) |
+## State split (ADR-007)
 
-## Deploy
+- **Lakebase Postgres** (`pipeline_factory` schema): app-owned operational
+  state — spec_registry, spec_versions, build_runs, llm_calls (with exact
+  prompt/response text), contracts. `@databricks/lakebase` pool; warehouse
+  fallback keeps every route alive without it.
+- **Delta `workspace.ctl`**: the data plane — dataflow_spec (engine input),
+  staged_artifacts (audit), recon_runs/entity_result/record_diff (Spark-written,
+  CDF on).
+- **Synced tables** `pf_lakebase.recon.*`: recon Delta → Postgres (TRIGGERED)
+  so the Reconciliation dashboard reads in milliseconds.
 
-One bundle ships everything: `databricks bundle deploy -t dev` (app + 2 runner jobs), then
-`bundle run pipeline_factory` to start the app. The deploy artifact is an esbuild single-file
-server + built client + templates — no npm install at app startup, ~5 MB. The app refuses
-any non-dev target at boot (constraint #3); prod promotion belongs to customer CI post-merge.
+## Build flow
 
-## Config (env, never code)
+render → branch (metadata commit) → spec_upsert (MERGE dataflow_spec) →
+provision (3 assets, connection gate, drop-guard) → workflow_run → dq (pipeline
+event log, latest update only) → recon (pf-framework-recon job) → PR with
+EVIDENCE.md. Failures feed the bounded fix loop: LLM emits a spec DELTA only
+(max `MAX_FIX_ITERATIONS`, then `needs_human`).
 
-`PF_LLM_ENDPOINT` (FMAPI endpoint name) · `PF_GITHUB_REPO` + `GITHUB_TOKEN` (secret scope
-`pipeline_factory`; absent → mock adapter) · `PF_JOB_PIPELINE_RUNNER` / `PF_JOB_RECON_RUNNER`
-(injected from bundle job resources; absent → runner steps deferred, never simulated) ·
-`MAX_FIX_ITERATIONS` · `PF_RECON_MIN_KEY` / `PF_RECON_MIN_ATTR` (fix-loop thresholds) ·
-`PF_RUNNER_PRINCIPAL`.
+## Hard constraints (original 8, as amended)
 
-## Verification
-
-`pnpm test` (unit + golden files — golden diffs are breaking changes) ·
-`node scripts/smoke.mjs` (headless full loop against the deployed app, run before demos) ·
-reference CI (`.github/workflows/ci.yml`) re-hashes every artifact against the manifest.
+1. Renderer is the sole producer of files; files are declarative metadata (ADR-008).
+2. Fix loop emits spec deltas only.
+3. The app never deploys beyond dev; prod promotion = customer CI applying the PR.
+4. Credentials only in secret scopes / UC connections.
+5. Every artifact/table/job tagged `generated_by=pipeline_factory` + spec identity.
+6. App is stateless; state = Lakebase (operational) + ctl Delta (data plane) (ADR-007).
+7. Two human gates: spec approval, PR merge — plus the ADR-010 decommission gate.
+8. CI/CD-agnostic: CicdAdapter boundary; factory.manifest.yml v2 is the contract.
