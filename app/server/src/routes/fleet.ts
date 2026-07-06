@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { FEATURES, SpecSchema, deriveBatches, fq, type Spec } from "@pf/core";
 import type { DbxClient } from "@pf/dbx";
-import type { RegistryClient } from "../lib/registry-client.js";
+import type { RegistryStore } from "../lib/store/types.js";
 import type { AppConfig } from "../config.js";
 
 function lit(v: string): string {
@@ -11,31 +11,14 @@ function lit(v: string): string {
 /** Fleet dashboard + evidence + feature-catalog data, all from the registry. */
 export function registerFleetRoutes(
   app: FastifyInstance,
-  registry: RegistryClient,
+  registry: RegistryStore,
   dbx: DbxClient,
   cfg: AppConfig,
 ): void {
   const t = (name: string) => fq(cfg.registry, name);
 
   app.get("/api/fleet", async () => {
-    const rows = await dbx.sqlRows(
-      `SELECT r.spec_id, r.entity, r.status, r.current_version, r.approved_by,
-              CAST(r.updated_at AS STRING) AS updated_at,
-              v.spec_json,
-              b.status AS build_status, b.pr_url, CAST(b.finished_at AS STRING) AS build_finished_at
-       FROM ${t("spec_registry")} r
-       LEFT JOIN ${t("spec_versions")} v
-         ON v.spec_id = r.spec_id AND v.spec_version = r.current_version
-       LEFT JOIN (
-         SELECT * FROM (
-           SELECT spec_id, status, pr_url, finished_at,
-                  ROW_NUMBER() OVER (PARTITION BY spec_id ORDER BY started_at DESC) AS rn
-           FROM ${t("build_runs")}
-         ) WHERE rn = 1
-       ) b ON b.spec_id = r.spec_id
-       ORDER BY r.updated_at DESC LIMIT 200`,
-      cfg.DATABRICKS_WAREHOUSE_ID,
-    );
+    const rows = await registry.fleet();
 
     const specs = rows.map((r) => {
       let confidence: number | null = null;
@@ -87,12 +70,7 @@ export function registerFleetRoutes(
     const spec = await registry.getSpec(id);
     if (!spec) return reply.code(404).send({ error: "spec not found" });
 
-    const builds = await dbx.sqlRows(
-      `SELECT run_id, status, pr_url, branch, fix_iteration, detail,
-              CAST(started_at AS STRING) AS started_at, CAST(finished_at AS STRING) AS finished_at
-       FROM ${t("build_runs")} WHERE spec_id = ${lit(id)} ORDER BY started_at DESC LIMIT 20`,
-      cfg.DATABRICKS_WAREHOUSE_ID,
-    );
+    const builds = await registry.listBuilds(id, 20);
 
     const recon = await dbx.sqlRows(
       `SELECT e.source_count, e.target_count, e.key_match_rate, e.row_match_rate, e.attr_match_rate,
@@ -128,18 +106,11 @@ export function registerFleetRoutes(
    * → target table.
    */
   app.get("/api/lineage", async () => {
-    const rows = await dbx.sqlRows(
-      `SELECT v.spec_json
-       FROM ${t("spec_registry")} r
-       INNER JOIN ${t("spec_versions")} v
-         ON v.spec_id = r.spec_id AND v.spec_version = r.current_version
-       WHERE r.status != 'draft'`,
-      cfg.DATABRICKS_WAREHOUSE_ID,
-    );
+    const jsons = await registry.listSpecJson();
     const specs: Spec[] = [];
-    for (const r of rows) {
+    for (const j of jsons) {
       try {
-        if (r.spec_json) specs.push(SpecSchema.parse(JSON.parse(r.spec_json)));
+        specs.push(SpecSchema.parse(JSON.parse(j)));
       } catch {
         // skip unparseable historical versions
       }

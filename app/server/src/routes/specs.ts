@@ -12,7 +12,7 @@ import {
   type ParsedContract,
 } from "@pf/adapters";
 import { contractAudit } from "@pf/core";
-import type { RegistryClient } from "../lib/registry-client.js";
+import type { RegistryStore } from "../lib/store/types.js";
 import { identityFrom } from "../lib/identity.js";
 import type { AppConfig } from "../config.js";
 
@@ -53,7 +53,7 @@ const ApproveBody = z.object({
 
 export function registerSpecRoutes(
   app: FastifyInstance,
-  registry: RegistryClient,
+  registry: RegistryStore,
   fmapi: FmapiClient,
   cfg: AppConfig,
 ): void {

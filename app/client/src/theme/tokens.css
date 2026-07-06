@@ -1,102 +1,113 @@
 /*
- * Pipeline Factory design tokens.
- * Source of truth: docs/design/pipeline-factory.dc.json (Claude Design export
- * "Pipeline Factory.dc.html", project d863f580-e3b4-418e-a2d5-271b8bcd7dfa).
- * Dark-first; light mode via [data-theme="light"]; accent via [data-accent].
+ * Pipeline Factory design tokens — Databricks DuBois look (ask #8).
+ * Values extracted from @databricks/design-system (dubois-colors.less, theme):
+ * 13px base font on the system stack, blue600 #2272B4 primary, grey ramp
+ * surfaces/borders, 8px spacing grid, 4px radii, pastel 200-ramp badges.
+ * LIGHT-FIRST (Databricks default); dark via [data-theme="dark"].
+ * Variable names kept (--pf-*) so components are untouched.
  */
 
 :root {
-  /* dark (default) */
-  --pf-bg: #0a0e0f;
-  --pf-surf: #12181a;
-  --pf-surf2: #161d1f;
-  --pf-bd: #232b2d;
-  --pf-bd2: #33403f;
-  --pf-tpri: #e8efed;
-  --pf-tsec: #93a3a6;
-  --pf-tmut: #617073;
-  --pf-hover-bg: rgba(255, 255, 255, 0.035);
-  --pf-chip: #1b2325;
-  --pf-track: #232b2d;
-  --pf-code-bg: #0e1416;
-  --pf-input-bg: #0e1416;
-  --pf-log-bg: #0a0e0f;
-  --pf-toast-bg: #161d1f;
-  --pf-ok: #34d399;
-  --pf-warn: #fbbf24;
-  --pf-bad: #f87171;
-  --pf-run: #38bdf8;
-  --pf-violet: #a78bfa;
-
-  /* accent: teal (default) */
-  --pf-acc: #2dd4bf;
-  --pf-acc-tx: #04201c;
-
-  --pf-soft-alpha: 0.15;
-  --pf-acc-soft: rgba(45, 212, 191, var(--pf-soft-alpha));
-  --pf-ok-soft: rgba(52, 211, 153, var(--pf-soft-alpha));
-  --pf-warn-soft: rgba(251, 191, 36, var(--pf-soft-alpha));
-  --pf-bad-soft: rgba(248, 113, 113, var(--pf-soft-alpha));
-
-  --pf-font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --pf-font-mono: "JetBrains Mono", ui-monospace, monospace;
-
-  /* type scale (reduced) */
-  --fs-h1: 15.5px;
-  --fs-h2: 14px;
-  --fs-h3: 12.5px;
-  --fs-body: 12.5px;
-  --fs-table: 11.5px;
-  --fs-mono: 11px;
-  --fs-small: 10.5px;
-  --fs-micro: 9.5px;
-  --fs-kpi: 20px;
-}
-
-[data-theme="light"] {
-  --pf-bg: #f5f7f7;
+  /* light (default) — DuBois */
+  --pf-bg: #f6f7f9;            /* grey050 */
   --pf-surf: #ffffff;
-  --pf-surf2: #f7f9f9;
-  --pf-bd: #e6ebeb;
-  --pf-bd2: #d2dada;
-  --pf-tpri: #0e1516;
-  --pf-tsec: #586668;
-  --pf-tmut: #8a9799;
-  --pf-hover-bg: rgba(14, 21, 22, 0.028);
-  --pf-chip: #eff3f3;
-  --pf-track: #e9eeee;
-  --pf-code-bg: #f5f7f7;
-  --pf-input-bg: #fbfcfc;
-  --pf-log-bg: #0c1213;
-  --pf-ok: #0f9d6e;
-  --pf-warn: #b4790a;
-  --pf-bad: #dc5a5a;
-  --pf-run: #0e82c4;
+  --pf-surf2: #f6f7f9;
+  --pf-bd: #e8ecf0;            /* grey100 — hairline borders */
+  --pf-bd2: #c0cdd8;           /* grey300 — input/button borders */
+  --pf-tpri: #11171c;          /* grey800 */
+  --pf-tsec: #5f7281;          /* secondary text */
+  --pf-tmut: #8396a5;
+  --pf-hover-bg: rgba(34, 114, 180, 0.08);   /* 8% primary wash */
+  --pf-chip: #eef2f8;
+  --pf-track: #e8ecf0;
+  --pf-code-bg: #f6f7f9;
+  --pf-input-bg: #ffffff;
+  --pf-log-bg: #11171c;
+  --pf-toast-bg: #ffffff;
+  --pf-ok: #277c43;            /* green600 */
+  --pf-warn: #be501e;          /* yellow600 (warning text tone) */
+  --pf-bad: #c82d4c;           /* red600 */
+  --pf-run: #2272b4;           /* blue600 */
+  --pf-violet: #8a63bf;
 
-  --pf-acc: #0e9e8a;
+  /* primary (accent) — Databricks blue */
+  --pf-acc: #2272b4;           /* blue600; hover #0e538b press #04355d */
+  --pf-acc-hover: #0e538b;
+  --pf-acc-press: #04355d;
   --pf-acc-tx: #ffffff;
 
-  --pf-soft-alpha: 0.12;
-  --pf-acc-soft: rgba(14, 158, 138, var(--pf-soft-alpha));
-  --pf-ok-soft: rgba(15, 157, 110, var(--pf-soft-alpha));
-  --pf-warn-soft: rgba(180, 121, 10, var(--pf-soft-alpha));
-  --pf-bad-soft: rgba(220, 90, 90, var(--pf-soft-alpha));
+  --pf-soft-alpha: 0.08;
+  --pf-acc-soft: rgba(34, 114, 180, 0.08);
+  --pf-ok-soft: #d4f7df;       /* green200 pastel badge */
+  --pf-warn-soft: #fcf3d8;     /* yellow-ish 200 */
+  --pf-bad-soft: #fde2e8;      /* red200 */
+
+  /* DuBois product UI uses the native system stack — no webfont */
+  --pf-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --pf-font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+    Menlo, monospace;
+
+  /* type scale — DuBois: 13px base, 12 sm, 18 lg, 22 xl; weights 400/600 */
+  --fs-h1: 18px;
+  --fs-h2: 15px;
+  --fs-h3: 13px;
+  --fs-body: 13px;
+  --fs-table: 13px;
+  --fs-mono: 12px;
+  --fs-small: 12px;
+  --fs-micro: 11px;
+  --fs-kpi: 22px;
+
+  /* spacing grid + radii */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --rad: 4px;
+  --rad-lg: 8px;
 }
 
-/* accents — dark values; light overrides below */
-[data-accent="blue"] { --pf-acc: #38bdf8; --pf-acc-tx: #041420; --pf-acc-soft: rgba(56, 189, 248, var(--pf-soft-alpha)); }
-[data-accent="indigo"] { --pf-acc: #818cf8; --pf-acc-tx: #0b0e33; --pf-acc-soft: rgba(129, 140, 248, var(--pf-soft-alpha)); }
-[data-accent="violet"] { --pf-acc: #a78bfa; --pf-acc-tx: #170a2e; --pf-acc-soft: rgba(167, 139, 250, var(--pf-soft-alpha)); }
-[data-accent="amber"] { --pf-acc: #fbbf24; --pf-acc-tx: #241701; --pf-acc-soft: rgba(251, 191, 36, var(--pf-soft-alpha)); }
-[data-accent="green"] { --pf-acc: #34d399; --pf-acc-tx: #04140f; --pf-acc-soft: rgba(52, 211, 153, var(--pf-soft-alpha)); }
-[data-accent="rose"] { --pf-acc: #fb7185; --pf-acc-tx: #2a0810; --pf-acc-soft: rgba(251, 113, 133, var(--pf-soft-alpha)); }
+/* dark mode (optional) — Databricks dark palette approximation */
+[data-theme="dark"] {
+  --pf-bg: #0e1215;
+  --pf-surf: #1a2228;
+  --pf-surf2: #161d22;
+  --pf-bd: #2a3439;
+  --pf-bd2: #3d4b53;
+  --pf-tpri: #e8ecf0;
+  --pf-tsec: #9cabb8;
+  --pf-tmut: #6b7d8b;
+  --pf-hover-bg: rgba(66, 153, 224, 0.12);
+  --pf-chip: #22303a;
+  --pf-track: #2a3439;
+  --pf-code-bg: #12181c;
+  --pf-input-bg: #12181c;
+  --pf-log-bg: #0a0e10;
+  --pf-toast-bg: #1a2228;
+  --pf-ok: #3caa60;
+  --pf-warn: #de7921;
+  --pf-bad: #e65b77;
+  --pf-run: #4299e0;
 
-[data-theme="light"][data-accent="blue"] { --pf-acc: #0e82c4; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(14, 130, 196, var(--pf-soft-alpha)); }
-[data-theme="light"][data-accent="indigo"] { --pf-acc: #4f52d6; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(79, 82, 214, var(--pf-soft-alpha)); }
-[data-theme="light"][data-accent="violet"] { --pf-acc: #7c5cd6; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(124, 92, 214, var(--pf-soft-alpha)); }
-[data-theme="light"][data-accent="amber"] { --pf-acc: #b4790a; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(180, 121, 10, var(--pf-soft-alpha)); }
-[data-theme="light"][data-accent="green"] { --pf-acc: #0f9d6e; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(15, 157, 110, var(--pf-soft-alpha)); }
-[data-theme="light"][data-accent="rose"] { --pf-acc: #d14d63; --pf-acc-tx: #ffffff; --pf-acc-soft: rgba(209, 77, 99, var(--pf-soft-alpha)); }
+  --pf-acc: #4299e0;           /* blue500 pops on dark */
+  --pf-acc-hover: #2272b4;
+  --pf-acc-press: #0e538b;
+  --pf-acc-tx: #ffffff;
+
+  --pf-acc-soft: rgba(66, 153, 224, 0.15);
+  --pf-ok-soft: rgba(60, 170, 96, 0.18);
+  --pf-warn-soft: rgba(222, 121, 33, 0.18);
+  --pf-bad-soft: rgba(230, 91, 119, 0.18);
+}
+
+/* accent variants retained for the Settings picker — DuBois-toned */
+[data-accent="teal"] { --pf-acc: #04867d; --pf-acc-hover: #04645d; --pf-acc-press: #024742; --pf-acc-soft: rgba(4, 134, 125, 0.1); }
+[data-accent="indigo"] { --pf-acc: #434a93; --pf-acc-hover: #2f3572; --pf-acc-press: #1f2452; --pf-acc-soft: rgba(67, 74, 147, 0.1); }
+[data-accent="violet"] { --pf-acc: #8a63bf; --pf-acc-hover: #6e4b9e; --pf-acc-press: #533779; --pf-acc-soft: rgba(138, 99, 191, 0.1); }
+[data-accent="amber"] { --pf-acc: #be501e; --pf-acc-hover: #93401a; --pf-acc-press: #6c2f13; --pf-acc-soft: rgba(190, 80, 30, 0.1); }
+[data-accent="green"] { --pf-acc: #277c43; --pf-acc-hover: #115026; --pf-acc-press: #093919; --pf-acc-soft: rgba(39, 124, 67, 0.1); }
+[data-accent="rose"] { --pf-acc: #c82d4c; --pf-acc-hover: #9e1b39; --pf-acc-press: #78112a; --pf-acc-soft: rgba(200, 45, 76, 0.1); }
 
 * { box-sizing: border-box; }
 body {
@@ -104,6 +115,8 @@ body {
   background: var(--pf-bg);
   color: var(--pf-tpri);
   font-family: var(--pf-font-sans);
+  font-size: var(--fs-body);
+  line-height: 20px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -126,15 +139,17 @@ body {
 }
 
 .pf-page { animation: pf_fadein 0.22s ease-out; }
+.pf-fadein { animation: pf_fadein 0.22s ease-out; }
 .pf-card {
   transition: border-color 0.15s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 .pf-card:hover {
   border-color: var(--pf-bd2);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 8px rgba(17, 23, 28, 0.08);
 }
 .pf-row { transition: background 0.12s ease; }
 .pf-row:hover { background: var(--pf-hover-bg); }
+.pf-row-hover:hover { background: var(--pf-hover-bg); }
 .pf-btn { transition: transform 0.1s ease, opacity 0.15s ease, background 0.15s ease; }
 .pf-btn:active { transform: scale(0.97); }
 .pf-nav-btn { transition: background 0.13s ease, color 0.13s ease; }
@@ -147,7 +162,7 @@ body {
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 144, 148, 0.35);
+  background: rgba(95, 114, 129, 0.35);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;

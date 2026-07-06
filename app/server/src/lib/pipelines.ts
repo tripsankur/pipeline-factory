@@ -218,16 +218,22 @@ export async function waitPipelineUpdate(
   }
 }
 
-/** Pull expectation metrics + errors from the ETL pipeline's event log. */
+/** Pull expectation metrics + errors from the ETL pipeline's event log —
+ *  scoped to the LATEST update only (the log keeps events from old failed
+ *  updates; counting those would fail healthy builds). */
 export async function collectDqFromEvents(
   dbx: DbxClient,
   pipelineId: string,
 ): Promise<{ summary: string; failures: string[] }> {
+  const p = await dbx.pipelineGet(pipelineId);
+  const latestUpdate = p.latest_updates?.[0]?.update_id ?? null;
   const r = await dbx.pipelineEvents(pipelineId, 200);
   const failures: string[] = [];
   let passed = 0;
   let failedRows = 0;
   for (const e of r.events ?? []) {
+    const origin = (e as { origin?: { update_id?: string } }).origin;
+    if (latestUpdate && origin?.update_id && origin.update_id !== latestUpdate) continue;
     if (e.level === "ERROR" && e.message) failures.push(e.message.slice(0, 300));
     const det = e.details as { flow_progress?: { data_quality?: { expectations?: { name: string; passed_records: number; failed_records: number }[] } } } | undefined;
     const exps = det?.flow_progress?.data_quality?.expectations ?? [];

@@ -166,6 +166,83 @@ export default function Evidence({ specId }: { specId: string | null }) {
         <h3 style={{ fontSize: 12.8, margin: "6px 0 10px" }}>Rendered artifacts</h3>
         <Artifacts specId={specId} />
       </div>
+
+      {/* prompt transparency: the actual LLM traffic behind this spec */}
+      <LlmCalls specId={specId} />
     </div>
+  );
+}
+
+interface LlmCall {
+  call_id: string;
+  purpose: string;
+  endpoint: string;
+  status: string;
+  latency_ms: number | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  prompt_text: string | null;
+  response_text: string | null;
+  created_at: string | null;
+}
+
+function LlmCalls({ specId }: { specId: string }) {
+  const q = useQuery({
+    queryKey: ["llm-calls", specId],
+    queryFn: async () => {
+      const r = await fetch(`/api/specs/${specId}/llm-calls`);
+      if (!r.ok) throw new Error(await r.text());
+      return (await r.json()) as { calls: LlmCall[] };
+    },
+  });
+  if (q.isLoading || q.isError) return null;
+  const calls = q.data!.calls;
+  if (calls.length === 0) return null;
+  return (
+    <Card style={{ padding: 16 }}>
+      <h3 style={{ margin: "0 0 4px", fontSize: "var(--fs-h3)" }}>LLM calls (exact prompts & responses)</h3>
+      <p style={{ margin: "0 0 8px", fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+        Every generation and fix-loop call the app made for this spec — the model only ever produces specs, never files.
+      </p>
+      {calls.map((c) => (
+        <details key={c.call_id} style={{ borderTop: "1px solid var(--pf-bd)", padding: "6px 0" }}>
+          <summary style={{ cursor: "pointer", fontSize: "var(--fs-small)" }}>
+            <Mono>{c.purpose}</Mono>
+            <span style={{ color: c.status === "ok" ? "var(--pf-ok)" : "var(--pf-bad)", marginLeft: 8 }}>{c.status}</span>
+            <span style={{ color: "var(--pf-tmut)", marginLeft: 8 }}>
+              {c.endpoint} · {c.latency_ms ?? "?"} ms · {c.prompt_tokens ?? "?"}→{c.completion_tokens ?? "?"} tok ·{" "}
+              {c.created_at?.slice(0, 19)}
+            </span>
+          </summary>
+          {c.prompt_text ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 6 }}>
+              {(["prompt_text", "response_text"] as const).map((k) => (
+                <pre
+                  key={k}
+                  style={{
+                    margin: 0,
+                    padding: 8,
+                    background: "var(--pf-code-bg)",
+                    border: "1px solid var(--pf-bd)",
+                    borderRadius: "var(--rad)",
+                    fontSize: "var(--fs-mono)",
+                    fontFamily: "var(--pf-font-mono)",
+                    whiteSpace: "pre-wrap",
+                    maxHeight: 240,
+                    overflow: "auto",
+                  }}
+                >
+                  {c[k] ?? "(empty)"}
+                </pre>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)", margin: "6px 0 0" }}>
+              full text unavailable (call predates Lakebase store or warehouse fallback active)
+            </p>
+          )}
+        </details>
+      ))}
+    </Card>
   );
 }

@@ -11,6 +11,8 @@ import { z } from "zod";
  */
 
 export const CONTRACT_FORMAT_VERSION = 1;
+/** v1.1: per-column `selected` + per-table `schema_source` (discovered vs declared) */
+export const CONTRACT_FORMAT_VERSION_1_1 = 1.1;
 
 const slugField = z
   .string()
@@ -46,6 +48,9 @@ export const ContractColumnSchema = z.object({
     .array(z.string())
     .nullish()
     .transform((v) => v ?? []),
+  /** v1.1: include this column in ingestion (discovered contracts list ALL
+   *  source fields; the reviewer prunes by deselecting) */
+  selected: z.boolean().default(true),
 });
 
 export const ContractTableSchema = z.object({
@@ -60,13 +65,19 @@ export const ContractTableSchema = z.object({
   /** required when mode = incremental */
   cursor_column: z.string().nullish().transform((v) => v ?? null),
   expected_daily_rows: z.number().int().min(0).nullish().transform((v) => v ?? null),
+  /** v1.1: how the column list was produced — "discovered" = pulled from the
+   *  live source (describe), "declared" = hand-authored */
+  schema_source: z.enum(["declared", "discovered"]).default("declared"),
   columns: z.array(ContractColumnSchema).min(1),
 });
 
 export const InterfaceContractSchema = z
   .object({
     contract: z.object({
-      format_version: z.literal(CONTRACT_FORMAT_VERSION),
+      format_version: z.union([
+        z.literal(CONTRACT_FORMAT_VERSION),
+        z.literal(CONTRACT_FORMAT_VERSION_1_1),
+      ]),
       id: z.string().min(1),
       name: z.string().min(1),
       version: z.number().int().min(1),
@@ -126,6 +137,25 @@ export const InterfaceContractSchema = z
           path: ["tables", i, "cursor_column"],
           message: `cursor_column '${t.cursor_column}' is not defined in table '${t.name}' columns`,
         });
+      }
+      // v1.1 selection rules: PKs must stay selected; at least one column selected
+      const selected = t.columns.filter((col) => col.selected);
+      if (selected.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["tables", i, "columns"],
+          message: `table '${t.name}' has no selected columns`,
+        });
+      }
+      const selectedNames = new Set(selected.map((col) => col.name));
+      for (const pk of t.primary_key) {
+        if (colNames.has(pk) && !selectedNames.has(pk)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["tables", i, "primary_key"],
+            message: `primary_key column '${pk}' must remain selected in table '${t.name}'`,
+          });
+        }
       }
     }
   });

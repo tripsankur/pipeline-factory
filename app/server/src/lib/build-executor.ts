@@ -23,7 +23,7 @@ import {
   type FmapiClient,
 } from "@pf/adapters";
 import type { DbxClient } from "@pf/dbx";
-import type { RegistryClient } from "./registry-client.js";
+import type { RegistryStore } from "./store/types.js";
 import type { AppConfig } from "../config.js";
 import {
   assertNoImplicitDrops,
@@ -72,7 +72,7 @@ export interface BuildEvent {
 export type BuildEmitter = (e: BuildEvent) => void;
 
 export interface BuildDeps {
-  registry: RegistryClient;
+  registry: RegistryStore;
   dbx: DbxClient;
   cfg: AppConfig;
   cicd: CicdAdapter;
@@ -162,11 +162,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
 
   let spec = await registry.getSpec(specId);
   if (!spec) throw new Error("spec not found");
-  const rows = await dbx.sqlRows(
-    `SELECT status, approved_by FROM ${fq(cfg.registry, "spec_registry")} WHERE spec_id = ${lit(specId)}`,
-    warehouse,
-  );
-  const reg = rows[0];
+  const reg = await registry.getRegistryRow(specId);
   if (!reg || (reg.status !== "approved" && reg.status !== "pr_open")) {
     throw new Error(`spec must be approved to build (status: ${reg?.status ?? "missing"})`);
   }
@@ -178,21 +174,16 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
   const facts = contractFacts(spec);
   log(`▸ build ${runId.slice(0, 8)} started (adapter: ${cicd.kind}, source: ${source}, max fix iterations: ${cfg.MAX_FIX_ITERATIONS})`);
 
-  await dbx.sql(
-    `INSERT INTO ${fq(cfg.registry, "build_runs")}
-     (run_id, spec_id, spec_version, phase, status, fix_iteration, branch, pr_url, detail, started_at, finished_at)
-     VALUES (${lit(runId)}, ${lit(spec.spec_id)}, ${spec.spec_version}, 'render', 'running', 0,
-             ${lit(branch)}, NULL, ${lit(`adapter=${cicd.kind}`)}, current_timestamp(), NULL)`,
-    warehouse,
-  );
+  await registry.insertBuildRun({
+    runId,
+    specId: spec.spec_id,
+    specVersion: spec.spec_version,
+    branch,
+    detail: `adapter=${cicd.kind}`,
+  });
 
   const recordFailure = async (detail: string, needsHuman: boolean): Promise<never> => {
-    await dbx.sql(
-      `UPDATE ${fq(cfg.registry, "build_runs")}
-       SET status = 'failed', fix_iteration = ${fixIterations.length}, detail = ${lit(detail.slice(0, 500))}, finished_at = current_timestamp()
-       WHERE run_id = ${lit(runId)}`,
-      warehouse,
-    );
+    await registry.failBuildRun(runId, fixIterations.length, detail);
     if (needsHuman) await registry.setStatus(specId, "needs_human");
     emit({ type: "error", text: detail.slice(0, 500) });
     throw new Error(detail.slice(0, 500));
@@ -471,25 +462,14 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     emit({ type: "step", step: "pr", status: "done", meta: `#${pr.number}` });
     log(`✓ PR ${pr.url}`);
 
-    await dbx.sql(
-      `UPDATE ${fq(cfg.registry, "build_runs")}
-       SET phase = 'pr_open', status = 'succeeded', fix_iteration = ${fixIterations.length},
-           pr_url = ${lit(pr.url)}, finished_at = current_timestamp()
-       WHERE run_id = ${lit(runId)}`,
-      warehouse,
-    );
+    await registry.completeBuildRun(runId, fixIterations.length, pr.url);
     await registry.setStatus(specId, "pr_open");
     emit({ type: "done", pr: { url: pr.url, number: pr.number }, run_id: runId });
     return { runId, prUrl: pr.url };
   } catch (err) {
     // recordFailure already handled bookkeeping for controlled failures
     if (!(err instanceof Error && err.message.startsWith("fix loop"))) {
-      await dbx.sql(
-        `UPDATE ${fq(cfg.registry, "build_runs")}
-         SET status = 'failed', detail = ${lit(String(err).slice(0, 500))}, finished_at = current_timestamp()
-         WHERE run_id = ${lit(runId)} AND status = 'running'`,
-        warehouse,
-      );
+      await registry.failRunningBuildRun(runId, String(err));
     }
     throw err;
   }

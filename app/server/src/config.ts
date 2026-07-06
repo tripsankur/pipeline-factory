@@ -39,6 +39,10 @@ const EnvSchema = z.object({
   PF_RECON_MIN_ATTR: z.coerce.number().min(0).max(1).default(0.98),
   /** local-dev identity stub when Apps forwarded headers are absent */
   PF_DEV_USER_EMAIL: z.string().default(""),
+  /** Lakebase operational store (ADR-007): "true" + injected PGHOST → PgStore,
+   *  anything else → warehouse fallback */
+  PF_PG_ENABLED: z.string().default("true"),
+  PGHOST: z.string().default(""),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema> & {

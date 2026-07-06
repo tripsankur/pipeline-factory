@@ -180,6 +180,46 @@ export type ParseResponse =
       audit: Record<string, unknown>;
     };
 
+export interface ReconRun {
+  recon_id: string;
+  run_id: string | null;
+  spec_id: string | null;
+  entity: string | null;
+  status: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  source_count: number | null;
+  target_count: number | null;
+  key_match_rate: number | null;
+  row_match_rate: number | null;
+  attr_match_rate: number | null;
+}
+
+export interface ReconSummary {
+  thresholds: { key: number; attr: number };
+  backend: "lakebase" | "warehouse";
+  kpis: {
+    entities: number;
+    runs_7d: number;
+    failed_runs_7d: number;
+    rows_loaded_last_batch: number;
+    avg_key_rate: number | null;
+    avg_row_rate: number | null;
+    avg_attr_rate: number | null;
+    below_threshold: number;
+  };
+  entities: { entity: string; latest: ReconRun; trend: ReconRun[] }[];
+}
+
+export interface ReconDiff {
+  entity: string;
+  key_value: string;
+  column_name: string;
+  source_value: string | null;
+  target_value: string | null;
+  created_at: string | null;
+}
+
 export const api = {
   parseContract: async (file: File): Promise<ParseResponse> => {
     const fd = new FormData();
@@ -224,6 +264,15 @@ export const api = {
   ): Promise<{ run_id: string; pr: { url: string; number: number }; adapter: string; logs: string[] }> =>
     json(await fetch(`/api/specs/${id}/build`, { method: "POST" })),
   fleet: async (): Promise<{ specs: FleetSpec[]; kpis: FleetKpis }> => json(await fetch("/api/fleet")),
+  reconSummary: async (): Promise<ReconSummary> => json(await fetch("/api/recon/summary")),
+  reconRuns: async (entity?: string): Promise<{ runs: ReconRun[] }> =>
+    json(await fetch(`/api/recon/runs${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`)),
+  reconDiffs: async (reconId: string, entity?: string): Promise<{ diffs: ReconDiff[] }> =>
+    json(
+      await fetch(
+        `/api/recon/diffs?recon_id=${encodeURIComponent(reconId)}${entity ? `&entity=${encodeURIComponent(entity)}` : ""}`,
+      ),
+    ),
   evidence: async (id: string): Promise<EvidenceData> => json(await fetch(`/api/specs/${id}/evidence`)),
   features: async (): Promise<{ features: FeatureDef[] }> => json(await fetch("/api/features")),
   featureClick: (id: string): void => {

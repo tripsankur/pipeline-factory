@@ -42,7 +42,8 @@ export class StructuredContractAdapter {
   }
 
   private toParsed(c: InterfaceContract, t: ContractTable): ParsedTableContract {
-    const columns: ContractColumn[] = t.columns.map((col) => ({
+    // v1.1: only selected columns flow into spec generation / ingestion
+    const columns: ContractColumn[] = t.columns.filter((col) => col.selected).map((col) => ({
       name: col.name,
       type: col.type,
       nullable: col.nullable,

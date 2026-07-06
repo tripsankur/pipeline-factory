@@ -346,8 +346,204 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
               <span style={{ color: "var(--pf-bad)", fontSize: 10.8 }}>{String(generate.error)}</span>
             )}
           </div>
+
+          <PromptPanel contract={contract} form={form} />
         </Card>
       )}
+
+      <DiscoverPanel />
     </div>
+  );
+}
+
+/** Prompt transparency (ask #7): show EXACTLY what the app's LLM will be asked. */
+function PromptPanel({
+  contract,
+  form,
+}: {
+  contract: ParsedContract;
+  form: { sourceSystem: string; targetSystem: string; sourceEntity: string; targetEntity: string; crosswalkTable: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<{ system: string; user: string } | null>(null);
+  const load = async () => {
+    setOpen(!open);
+    if (!preview) {
+      const r = await fetch("/api/prompts/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contract, ...form }),
+      });
+      if (r.ok) setPreview((await r.json()) as { system: string; user: string });
+    }
+  };
+  return (
+    <div style={{ marginTop: 14, borderTop: "1px solid var(--pf-bd)", paddingTop: 10 }}>
+      <button
+        className="pf-btn"
+        onClick={load}
+        style={{ background: "none", border: "none", color: "var(--pf-acc)", cursor: "pointer", padding: 0, fontSize: "var(--fs-small)" }}
+      >
+        {open ? "▾" : "▸"} What the LLM will be asked (exact prompt)
+      </button>
+      {open && preview && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          {(["system", "user"] as const).map((k) => (
+            <div key={k}>
+              <div style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)", textTransform: "uppercase" }}>{k} prompt</div>
+              <pre
+                style={{
+                  margin: "4px 0 0",
+                  padding: 10,
+                  background: "var(--pf-code-bg)",
+                  border: "1px solid var(--pf-bd)",
+                  borderRadius: "var(--rad)",
+                  fontSize: "var(--fs-mono)",
+                  fontFamily: "var(--pf-font-mono)",
+                  whiteSpace: "pre-wrap",
+                  maxHeight: 260,
+                  overflow: "auto",
+                }}
+              >
+                {preview[k]}
+              </pre>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface DiscoveredField {
+  name: string;
+  type: string;
+  nullable: boolean;
+  pii_hint: boolean;
+  calculated: boolean;
+  compound: boolean;
+}
+
+/** Schema discovery (ask #10 / contract v1.1): pull the TRUE column list from
+ *  the source, prune, and export contract-ready YAML. */
+function DiscoverPanel() {
+  const toast = useToast();
+  const [conn, setConn] = useState("sfdc_sample");
+  const [objectsText, setObjectsText] = useState("Account, Contact");
+  const [result, setResult] = useState<{ name: string; fields: DiscoveredField[] }[] | null>(null);
+  const [selected, setSelected] = useState<Record<string, Record<string, boolean>>>({});
+  const [busy, setBusy] = useState(false);
+
+  const discover = async () => {
+    setBusy(true);
+    try {
+      const objects = objectsText.split(",").map((s) => s.trim()).filter(Boolean);
+      const r = await fetch(`/api/connections/${encodeURIComponent(conn)}/discover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objects }),
+      });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 240));
+      const data = (await r.json()) as { objects: { name: string; fields: DiscoveredField[] }[] };
+      setResult(data.objects);
+      const sel: Record<string, Record<string, boolean>> = {};
+      for (const o of data.objects) {
+        sel[o.name] = Object.fromEntries(o.fields.map((f) => [f.name, !f.compound && !f.calculated]));
+      }
+      setSelected(sel);
+      toast(`discovered ${data.objects.map((o) => `${o.name}: ${o.fields.length} fields`).join(" · ")}`);
+    } catch (e) {
+      toast(String(e).slice(0, 200), "bad");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const yamlFor = (o: { name: string; fields: DiscoveredField[] }): string => {
+    const lines = [`# discovered from ${conn} — contract v1.1 (schema_source: discovered)`, `columns:`];
+    for (const f of o.fields) {
+      const on = selected[o.name]?.[f.name] ?? false;
+      lines.push(
+        `  - { name: ${f.name}, type: ${f.type}, nullable: ${f.nullable}${f.pii_hint ? ", pii: true" : ""}${on ? "" : ", selected: false"} }`,
+      );
+    }
+    return lines.join("\n");
+  };
+
+  const download = (o: { name: string; fields: DiscoveredField[] }) => {
+    const blob = new Blob([yamlFor(o)], { type: "text/yaml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${o.name.toLowerCase()}.columns.yaml`;
+    a.click();
+  };
+
+  return (
+    <Card style={{ padding: 16 }}>
+      <h3 style={{ margin: "0 0 4px", fontSize: "var(--fs-h3)" }}>Discover source schema</h3>
+      <p style={{ margin: "0 0 10px", fontSize: "var(--fs-small)", color: "var(--pf-tsec)" }}>
+        Pull the true field list from the source so the Interface Contract matches reality (contract v1.1,
+        <Mono> schema_source: discovered</Mono>). Prune columns here, then paste the YAML into the contract.
+      </p>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input
+          value={conn}
+          onChange={(e) => setConn(e.target.value)}
+          placeholder="connection name"
+          style={{ padding: "6px 10px", borderRadius: "var(--rad)", border: "1px solid var(--pf-bd2)", background: "var(--pf-input-bg)", color: "var(--pf-tpri)", fontFamily: "var(--pf-font-mono)", fontSize: "var(--fs-mono)" }}
+        />
+        <input
+          value={objectsText}
+          onChange={(e) => setObjectsText(e.target.value)}
+          placeholder="Account, Contact"
+          style={{ flex: 1, minWidth: 200, padding: "6px 10px", borderRadius: "var(--rad)", border: "1px solid var(--pf-bd2)", background: "var(--pf-input-bg)", color: "var(--pf-tpri)", fontFamily: "var(--pf-font-mono)", fontSize: "var(--fs-mono)" }}
+        />
+        <Button onClick={discover} disabled={busy}>
+          {busy ? "Discovering…" : "Discover schema"}
+        </Button>
+      </div>
+      {result?.map((o) => {
+        const count = Object.values(selected[o.name] ?? {}).filter(Boolean).length;
+        return (
+          <div key={o.name} style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong style={{ fontSize: "var(--fs-h3)" }}>
+                {o.name} <span style={{ color: "var(--pf-tsec)", fontWeight: 400 }}>— {o.fields.length} fields, {count} selected</span>
+              </strong>
+              <Button onClick={() => download(o)}>Download contract YAML</Button>
+            </div>
+            <div style={{ maxHeight: 220, overflow: "auto", marginTop: 6, border: "1px solid var(--pf-bd)", borderRadius: "var(--rad)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-small)" }}>
+                <tbody>
+                  {o.fields.map((f) => (
+                    <tr key={f.name} className="pf-row">
+                      <td style={{ padding: "3px 8px", width: 30 }}>
+                        <input
+                          type="checkbox"
+                          checked={selected[o.name]?.[f.name] ?? false}
+                          disabled={f.compound || f.calculated}
+                          onChange={(e) =>
+                            setSelected((s) => ({ ...s, [o.name]: { ...s[o.name], [f.name]: e.target.checked } }))
+                          }
+                        />
+                      </td>
+                      <td style={{ padding: "3px 8px" }}>
+                        <Mono>{f.name}</Mono>
+                      </td>
+                      <td style={{ padding: "3px 8px", color: "var(--pf-tsec)" }}>{f.type}</td>
+                      <td style={{ padding: "3px 8px", color: "var(--pf-tmut)", fontSize: "var(--fs-micro)" }}>
+                        {[f.pii_hint ? "PII?" : "", f.calculated ? "calculated (excluded)" : "", f.compound ? "compound (excluded)" : ""]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </Card>
   );
 }

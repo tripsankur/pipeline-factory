@@ -23,6 +23,9 @@ export interface LlmCallMeta {
   completionTokens: number | null;
   latencyMs: number;
   status: "ok" | "error";
+  /** exact prompt/response text (truncated to 32KB) — prompt transparency */
+  requestText: string | null;
+  responseText: string | null;
 }
 
 export type LlmCallLogger = (meta: LlmCallMeta) => Promise<void> | void;
@@ -123,6 +126,7 @@ export class FmapiClient {
     started: number,
     status: "ok" | "error",
   ): LlmCallMeta {
+    const CAP = 32 * 1024;
     return {
       purpose: opts.purpose,
       endpoint: this.cfg.endpoint,
@@ -132,6 +136,8 @@ export class FmapiClient {
       completionTokens: usage?.completion_tokens ?? null,
       latencyMs: Date.now() - started,
       status,
+      requestText: `[system]\n${opts.system}\n\n[user]\n${opts.user}`.slice(0, CAP),
+      responseText: responseText.slice(0, CAP) || null,
     };
   }
 }

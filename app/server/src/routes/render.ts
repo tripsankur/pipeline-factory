@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { createRenderer, branchName, commitMessage } from "@pf/core";
-import type { RegistryClient } from "../lib/registry-client.js";
+import type { RegistryStore } from "../lib/store/types.js";
 
 /** Resolve templates dir: bundled deploy layout first, then repo layout (local dev). */
 export function resolveTemplatesDir(): string {
@@ -18,7 +18,7 @@ export function resolveTemplatesDir(): string {
   return found;
 }
 
-export function registerRenderRoutes(app: FastifyInstance, registry: RegistryClient): void {
+export function registerRenderRoutes(app: FastifyInstance, registry: RegistryStore): void {
   const templatesDir = resolveTemplatesDir();
   const render = createRenderer({ templatesDir });
 

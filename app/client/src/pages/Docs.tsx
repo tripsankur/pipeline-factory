@@ -65,9 +65,33 @@ const TOC = [
   ["screens", "Screens guide"],
   ["naming", "Ingestion & naming standard"],
   ["build", "Build pipeline & fix loop"],
+  ["llm", "How the LLM is prompted"],
+  ["architecture", "v2 architecture (framework + metadata)"],
   ["features", "Features & roadmap"],
   ["trouble", "Troubleshooting"],
 ] as const;
+
+function LivePrompts() {
+  const q = useQuery({
+    queryKey: ["prompts"],
+    queryFn: async () => {
+      const r = await fetch("/api/prompts");
+      if (!r.ok) throw new Error(await r.text());
+      return (await r.json()) as { prompts: { id: string; title: string; content: string }[] };
+    },
+  });
+  if (!q.data) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {q.data.prompts.map((p) => (
+        <details key={p.id}>
+          <summary style={{ cursor: "pointer", fontSize: "var(--fs-small)", color: "var(--pf-acc)" }}>{p.title}</summary>
+          <Code>{p.content}</Code>
+        </details>
+      ))}
+    </div>
+  );
+}
 
 export default function Docs() {
   const features = useQuery({ queryKey: ["features"], queryFn: api.features });
@@ -214,21 +238,63 @@ tables:
           <T
             head={["Step", "What it does", "On failure"]}
             rows={[
-              ["Render", "Deterministic artifacts from the approved spec (golden-file gated)", "—"],
+              ["Render", "Deterministic METADATA files from the approved spec (dataflow.yml + resources yml, golden-file gated)", "—"],
               ["Branch", "feat/{entity}-ingestion-v{n} + commit with spec-tagged message", "—"],
-              ["Deploy dev", "Stages artifacts + spec.json to ctl.staged_artifacts for the runners", "—"],
-              ["Pipeline run", "Runner executes stitch + adapter SQL verbatim", "fix loop"],
-              ["Tests", "Expectations evaluated on the target (fail-action violations stop the build)", "fix loop"],
-              ["Recon", "Count / key / attribute compare vs thresholds; writes ctl.recon_*", "fix loop"],
-              ["PR", "Evidence (recon rates, fix timeline) into EVIDENCE.md + PR body", "—"],
+              ["Metadata", "MERGE the DataflowSpec row into ctl.dataflow_spec (tombstone-safe, never deletes)", "—"],
+              ["Provision", "Ensure the three standard Lakeflow assets: ingestion pipeline, ETL pipeline, workflow (idempotent, drop-guarded)", "connection gate → needs_human"],
+              ["Workflow", "Runs the workflow: pipeline_task(ingest) → pipeline_task(etl) against the framework engine", "fix loop"],
+              ["Data quality", "Expectation metrics read from the ETL pipeline's event log", "fix loop"],
+              ["Recon", "Framework recon job: count / key / attribute compare vs thresholds; writes ctl.recon_*", "fix loop"],
+              ["PR", "Evidence (recon rates, fix timeline) into metadata/{source}/{entity}/EVIDENCE.md + PR body", "—"],
             ]}
           />
           <p style={{ marginBottom: 0 }}>
             <strong>Fix loop:</strong> on failure the LLM receives the real task error and produces a{" "}
-            <em>spec delta</em> (never file edits). The spec re-renders, re-stages, re-runs — bounded by{" "}
+            <em>spec delta</em> (never file edits). The spec re-renders, re-upserts, re-runs — bounded by{" "}
             <Mono>MAX_FIX_ITERATIONS</Mono>; exhaustion or an LLM-judged-unfixable failure sets the spec to{" "}
             <Mono>needs_human</Mono>. Every delta is a registry version, visible in Spec history and the PR's
             fix timeline.
+          </p>
+        </Section>
+
+        <Section id="llm" title="How the LLM is prompted">
+          <p>
+            The model's role is deliberately narrow: it turns contracts into <em>specs</em> and failures into{" "}
+            <em>spec deltas</em> — it never writes files, SQL scripts, or pipelines. The exact prompts are
+            user-visible in three places:
+          </p>
+          <T
+            head={["Where", "What you see"]}
+            rows={[
+              ["Contract intake", "“What the LLM will be asked” — the live system prompt + the composed user prompt for your parsed contract, before you generate"],
+              ["PR evidence", "Every actual call for a spec (generation + fix loop): exact prompt, exact response, tokens, latency"],
+              ["This page", "The live system prompts below, rendered from the code the server is running right now"],
+            ]}
+          />
+          <LivePrompts />
+        </Section>
+
+        <Section id="architecture" title="v2 architecture — framework + metadata (ADR-008/009)">
+          <p>
+            <strong>One static engine, N sources.</strong> Executable code lives once in{" "}
+            <Mono>databricks-ingestion-framework</Mono> (generic SDP engine + recon job, semver-versioned).
+            Each source contributes only <em>metadata</em>: a row in <Mono>ctl.dataflow_spec</Mono> and a
+            metadata-only PR (<Mono>metadata/{"{source}"}/{"{entity}"}/dataflow.yml</Mono> + a thin{" "}
+            <Mono>resources/{"{source}"}.pipeline.yml</Mono>).
+          </p>
+          <T
+            head={["Asset (per source)", "Kind", "Purpose"]}
+            rows={[
+              [<Mono key="1">brnz_{"{source}"}_ingest</Mono>, "Lakeflow Connect ingestion pipeline", "source → bronze (managed cursoring, SCD, include_columns from the contract)"],
+              [<Mono key="2">slvr_{"{source}"}_etl</Mono>, "Lakeflow Declarative Pipeline (SDP)", "bronze → silver stitch + data-quality expectations, driven by dataflow_spec metadata"],
+              [<Mono key="3">{"{source}"}_workflow</Mono>, "Lakeflow Job (workflow)", "orchestration: ingest → etl on the contract's cron schedule"],
+            ]}
+          />
+          <p style={{ marginBottom: 0 }}>
+            Spec rows are <strong>tombstoned, never deleted</strong> (ADR-010): SDP drops managed datasets
+            that vanish from its graph, so decommissioning requires an explicit human confirmation. App
+            state lives in Lakebase Postgres; recon results sync back as read-only tables for the
+            Reconciliation dashboard (ADR-007).
           </p>
         </Section>
 

@@ -94,6 +94,33 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
     return { deleted: name };
   });
 
+  /**
+   * Schema discovery (contract v1.1, ask #10): fetch the TRUE field list from
+   * the source so the Interface Contract reflects reality (e.g. 68 Account
+   * fields, not a hand-typed 6). Server-side describe via secret-scope creds
+   * (~2s); ingestion itself stays with Lakeflow Connect (ADR-009).
+   */
+  app.post("/api/connections/:name/discover", async (req, reply) => {
+    const { name } = req.params as { name: string };
+    const body = z.object({ objects: z.array(z.string().min(1)).min(1).max(50) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid body", detail: body.error.issues });
+    try {
+      const { sfdcDescribe } = await import("../lib/sfdc-describe.js");
+      const result = await sfdcDescribe(dbx, cfg.PF_SECRET_SCOPE, name, body.data.objects);
+      return {
+        connection: name,
+        discovered_at: new Date().toISOString(),
+        rotated_refresh_token: result.rotated,
+        objects: result.objects,
+      };
+    } catch (err) {
+      return reply.code(502).send({
+        error: `schema discovery failed: ${String(err).slice(0, 300)}`,
+        fallback: "run the pf-framework-sfdc-describe job manually if secret-scope access is blocked",
+      });
+    }
+  });
+
   /** Generic connections: credentials straight into UC connection options. */
   app.post("/api/connections/generic", async (req, reply) => {
     const body = GenericBody.parse(req.body);

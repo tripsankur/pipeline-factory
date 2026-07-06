@@ -142,6 +142,11 @@ resources:
             scope: "pipeline_factory"
             key: "github_token"
             permission: "READ"
+        - name: "postgres"
+          postgres:
+            branch: "projects/pipeline-factory/branches/production"
+            database: "projects/pipeline-factory/branches/production/databases/databricks-postgres"
+            permission: "CAN_CONNECT_AND_CREATE"
 
 targets:
   dev:

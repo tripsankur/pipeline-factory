@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { createRenderer, fq } from "@pf/core";
 import { GitHubCicdAdapter, MockCicdAdapter, type CicdAdapter, type FmapiClient } from "@pf/adapters";
 import type { DbxClient } from "@pf/dbx";
-import type { RegistryClient } from "../lib/registry-client.js";
+import type { RegistryStore } from "../lib/store/types.js";
 import { executeBuild, type BuildEvent } from "../lib/build-executor.js";
 import { resolveTemplatesDir } from "./render.js";
 import type { AppConfig } from "../config.js";
@@ -26,7 +26,7 @@ export function makeCicdAdapter(cfg: AppConfig): CicdAdapter {
  */
 export function registerBuildRoutes(
   app: FastifyInstance,
-  registry: RegistryClient,
+  registry: RegistryStore,
   dbx: DbxClient,
   cfg: AppConfig,
   fmapi: FmapiClient,

@@ -8,6 +8,7 @@ import Mapping from "./pages/Mapping";
 import Evidence from "./pages/Evidence";
 import BuildConsole from "./pages/BuildConsole";
 import Lineage from "./pages/Lineage";
+import { Reconciliation } from "./pages/Reconciliation";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Docs from "./pages/Docs";
@@ -25,7 +26,7 @@ function Icon({ d, color, size = 17 }: { d: string; color: string; size?: number
 export default function App() {
   const [page, setPage] = useState("fleet");
   const [activeSpecId, setActiveSpecId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light"); // DuBois: light-first
   const fleet = useQuery({ queryKey: ["fleet"], queryFn: api.fleet, refetchInterval: 30_000 });
   const awaitingReview = fleet.data?.kpis.awaiting_review ?? 0;
 
@@ -221,6 +222,7 @@ export default function App() {
           {page === "build" && <BuildConsole specId={activeSpecId} />}
           {page === "evidence" && <Evidence specId={activeSpecId} />}
           {page === "lineage" && <Lineage onOpenSpec={(id) => openSpec(id, "mapping")} />}
+          {page === "recon" && <Reconciliation />}
           {page === "history" && <History specId={activeSpecId} />}
           {page === "settings" && <Settings />}
           {page === "docs" && <Docs />}
