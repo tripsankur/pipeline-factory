@@ -1,14 +1,22 @@
 import { randomUUID } from "node:crypto";
 import {
+  applyDelta,
   branchName,
   buildEvidenceMarkdown,
   buildManifest,
   commitMessage,
   fq,
+  SpecDeltaSchema,
   type RenderResult,
   type Spec,
 } from "@pf/core";
-import type { CicdAdapter, CommitFile } from "@pf/adapters";
+import {
+  FIX_SYSTEM_PROMPT,
+  buildFixUserPrompt,
+  type CicdAdapter,
+  type CommitFile,
+  type FmapiClient,
+} from "@pf/adapters";
 import type { DbxClient } from "@pf/dbx";
 import type { RegistryClient } from "./registry-client.js";
 import type { AppConfig } from "../config.js";
@@ -22,11 +30,13 @@ export const BUILD_STEPS = ["render", "branch", "deploy_dev", "pipeline_run", "t
 export type BuildStep = (typeof BUILD_STEPS)[number];
 
 export interface BuildEvent {
-  type: "step" | "log" | "done" | "error";
+  type: "step" | "log" | "fix" | "done" | "error";
   step?: BuildStep;
   status?: "running" | "done" | "deferred" | "failed";
   meta?: string;
   text?: string;
+  iteration?: number;
+  maxIterations?: number;
   pr?: { url: string; number: number };
   run_id?: string;
 }
@@ -39,6 +49,7 @@ export interface BuildDeps {
   cfg: AppConfig;
   cicd: CicdAdapter;
   render: (spec: Spec) => RenderResult;
+  fmapi: FmapiClient;
 }
 
 const TERMINAL = ["TERMINATED", "SKIPPED", "INTERNAL_ERROR"];
@@ -50,39 +61,62 @@ async function runJobAndWait(
   log: (t: string) => void,
   label: string,
   timeoutMs = 20 * 60_000,
-): Promise<{ ok: boolean; state: string; url?: string }> {
+): Promise<{ ok: boolean; state: string; message: string }> {
   const { run_id } = await dbx.jobRunNow(jobId, params);
   log(`▸ ${label}: job run ${run_id} submitted`);
   const deadline = Date.now() + timeoutMs;
   let last = "";
   for (;;) {
-    if (Date.now() > deadline) return { ok: false, state: "TIMEOUT" };
+    if (Date.now() > deadline) return { ok: false, state: "TIMEOUT", message: "job timed out" };
     await new Promise((r) => setTimeout(r, 6000));
     const run = await dbx.jobGetRun(run_id);
     const lc = run.state.life_cycle_state;
     if (lc !== last) {
       last = lc;
-      log(`▸ ${label}: ${lc.toLowerCase()}${run.state.state_message ? ` — ${run.state.state_message}` : ""}`);
+      log(`▸ ${label}: ${lc.toLowerCase()}`);
     }
     if (TERMINAL.includes(lc)) {
       const ok = run.state.result_state === "SUCCESS";
-      return { ok, state: run.state.result_state ?? lc, ...(run.run_page_url ? { url: run.run_page_url } : {}) };
+      let message = run.state.state_message ?? "";
+      if (!ok) {
+        // surface the real task error — state_message is just "Workload failed"
+        for (const task of run.tasks ?? []) {
+          try {
+            const out = await dbx.jobGetRunOutput(task.run_id);
+            if (out.error) {
+              message = `${out.error}\n${(out.error_trace ?? "").split("\n").slice(-6).join("\n")}`.slice(0, 1500);
+              break;
+            }
+          } catch {
+            // keep state_message
+          }
+        }
+      }
+      return { ok, state: run.state.result_state ?? lc, message };
     }
   }
 }
 
+interface AttemptOutcome {
+  ok: boolean;
+  failedStep?: BuildStep;
+  evidence?: string;
+  testsMeta?: string;
+  recon?: { keyMatchRate: number | null; rowMatchRate: number | null; attrMatchRate: number | null } | null;
+}
+
 /**
- * Full build: render → branch/commit → stage to volume → pipeline_runner job →
- * expectations → recon_runner job → PR with recon-bearing evidence.
- * Runner steps only report `deferred` when runner job ids are not configured.
+ * Full build with the bounded fix loop (hard constraint #2): on runner failure
+ * the LLM produces a spec DELTA — never file edits — the spec re-renders,
+ * re-stages, re-runs. MAX_FIX_ITERATIONS exhausted → needs_human.
  */
 export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildEmitter): Promise<{ runId: string; prUrl: string }> {
-  const { registry, dbx, cfg, cicd, render } = deps;
+  const { registry, dbx, cfg, cicd, render, fmapi } = deps;
   const now = () => new Date().toISOString().slice(11, 19);
   const log = (text: string) => emit({ type: "log", text: `${now()} ${text}` });
   const warehouse = cfg.DATABRICKS_WAREHOUSE_ID;
 
-  const spec = await registry.getSpec(specId);
+  let spec = await registry.getSpec(specId);
   if (!spec) throw new Error("spec not found");
   const rows = await dbx.sqlRows(
     `SELECT status, approved_by FROM ${fq(cfg.registry, "spec_registry")} WHERE spec_id = ${lit(specId)}`,
@@ -94,8 +128,9 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
   }
 
   const runId = randomUUID();
-  const branch = branchName(spec);
-  log(`▸ build ${runId.slice(0, 8)} started (adapter: ${cicd.kind})`);
+  const branch = branchName(spec); // fixed at build start; fix commits land on it
+  const fixIterations: { iteration: number; reason: string }[] = [];
+  log(`▸ build ${runId.slice(0, 8)} started (adapter: ${cicd.kind}, max fix iterations: ${cfg.MAX_FIX_ITERATIONS})`);
 
   await dbx.sql(
     `INSERT INTO ${fq(cfg.registry, "build_runs")}
@@ -105,45 +140,41 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     warehouse,
   );
 
-  const fail = async (step: BuildStep, detail: string): Promise<never> => {
-    emit({ type: "step", step, status: "failed", meta: detail.slice(0, 120) });
+  const recordFailure = async (detail: string, needsHuman: boolean): Promise<never> => {
     await dbx.sql(
       `UPDATE ${fq(cfg.registry, "build_runs")}
-       SET status = 'failed', detail = ${lit(detail.slice(0, 500))}, finished_at = current_timestamp()
+       SET status = 'failed', fix_iteration = ${fixIterations.length}, detail = ${lit(detail.slice(0, 500))}, finished_at = current_timestamp()
        WHERE run_id = ${lit(runId)}`,
       warehouse,
     );
+    if (needsHuman) await registry.setStatus(specId, "needs_human");
     emit({ type: "error", text: detail.slice(0, 500) });
     throw new Error(detail.slice(0, 500));
   };
 
-  try {
-    // 1. render
+  // render + commit current spec state to the branch
+  const renderAndCommit = async (message: string): Promise<RenderResult> => {
     emit({ type: "step", step: "render", status: "running" });
-    const t0 = Date.now();
-    const { files } = render(spec);
-    emit({ type: "step", step: "render", status: "done", meta: `${files.length} artifacts · ${((Date.now() - t0) / 1000).toFixed(1)}s` });
-    log(`▸ render: ${files.length} artifacts materialized`);
+    const result = render(spec!);
+    emit({ type: "step", step: "render", status: "done", meta: `${result.files.length} artifacts · v${spec!.spec_version}` });
 
-    // 2. branch + commit artifacts + manifest (evidence committed after recon)
     emit({ type: "step", step: "branch", status: "running" });
-    const manifest = buildManifest(spec, files);
     const commitFiles: CommitFile[] = [
-      ...files.map((f) => ({ path: f.path, content: f.content })),
-      { path: "factory.manifest.yml", content: manifest },
+      ...result.files.map((f) => ({ path: f.path, content: f.content })),
+      { path: "factory.manifest.yml", content: buildManifest(spec!, result.files) },
     ];
     await cicd.createBranch(branch);
-    await cicd.commitFiles(branch, commitFiles, commitMessage(spec));
+    await cicd.commitFiles(branch, commitFiles, message);
     emit({ type: "step", step: "branch", status: "done", meta: branch });
-    log(`▸ git: branch ${branch}, ${commitFiles.length} files committed`);
+    log(`▸ git: ${commitFiles.length} files committed (${message.split("\n")[0]})`);
+    return result;
+  };
 
-    // 3. stage artifacts + spec into ctl.staged_artifacts (runner input — Delta,
-    // not a volume: table ACLs already work for both the app SP and the runner
-    // identity, no extra grants required; see ADR-006)
+  const stage = async (files: RenderResult["files"]): Promise<void> => {
     emit({ type: "step", step: "deploy_dev", status: "running" });
     const staged = fq(cfg.registry, "staged_artifacts");
     await dbx.sql(
-      `DELETE FROM ${staged} WHERE spec_id = ${lit(spec.spec_id)} AND spec_version = ${spec.spec_version}`,
+      `DELETE FROM ${staged} WHERE spec_id = ${lit(spec!.spec_id)} AND spec_version = ${spec!.spec_version}`,
       warehouse,
     );
     const stagedFiles = [
@@ -153,91 +184,160 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     for (const f of stagedFiles) {
       await dbx.sql(
         `INSERT INTO ${staged} (spec_id, spec_version, path, content, sha256, staged_at)
-         VALUES (${lit(spec.spec_id)}, ${spec.spec_version}, ${lit(f.path)}, ${lit(f.content)}, ${lit(f.sha256)}, current_timestamp())`,
+         VALUES (${lit(spec!.spec_id)}, ${spec!.spec_version}, ${lit(f.path)}, ${lit(f.content)}, ${lit(f.sha256)}, current_timestamp())`,
         warehouse,
       );
     }
-    emit({ type: "step", step: "deploy_dev", status: "done", meta: `staged ${stagedFiles.length} files → ctl.staged_artifacts` });
-    log(`▸ deploy: ${stagedFiles.length} files staged to ${cfg.registry.schema}.staged_artifacts v${spec.spec_version}`);
+    emit({ type: "step", step: "deploy_dev", status: "done", meta: `staged v${spec!.spec_version} → ctl.staged_artifacts` });
+    log(`▸ deploy: ${stagedFiles.length} files staged (v${spec!.spec_version})`);
+  };
 
-    // 4–6. runner jobs (real when configured, deferred otherwise)
+  /** One pipeline→tests→recon pass against the currently staged spec version. */
+  const attempt = async (): Promise<AttemptOutcome> => {
     const pipelineJob = Number(cfg.PF_JOB_PIPELINE_RUNNER);
     const reconJob = Number(cfg.PF_JOB_RECON_RUNNER);
-    let recon: { keyMatchRate: number | null; rowMatchRate: number | null; attrMatchRate: number | null } | null = null;
-    let testsMeta = "";
-
     if (!pipelineJob || !reconJob) {
       for (const step of ["pipeline_run", "tests", "recon"] as const) {
         emit({ type: "step", step, status: "deferred", meta: "runner jobs not configured" });
       }
       log("▸ pipeline/tests/recon: runner job ids not configured — steps deferred");
-    } else {
-      const jobParams = {
-        spec_id: spec.spec_id,
-        spec_version: String(spec.spec_version),
-        run_id: runId,
-      };
+      return { ok: true, recon: null, testsMeta: "" };
+    }
+    const jobParams = { spec_id: spec!.spec_id, spec_version: String(spec!.spec_version), run_id: runId };
 
-      emit({ type: "step", step: "pipeline_run", status: "running" });
-      const pipeRes = await runJobAndWait(dbx, pipelineJob, jobParams, log, "pipeline");
-      if (!pipeRes.ok) await fail("pipeline_run", `pipeline_runner ${pipeRes.state}${pipeRes.url ? ` (${pipeRes.url})` : ""}`);
-      emit({ type: "step", step: "pipeline_run", status: "done", meta: spec.target.entity });
+    emit({ type: "step", step: "pipeline_run", status: "running" });
+    const pipeRes = await runJobAndWait(dbx, pipelineJob, jobParams, log, "pipeline");
 
-      emit({ type: "step", step: "tests", status: "running" });
-      const testsRows = await dbx.sqlRows(
-        `SELECT status, detail FROM ${fq(cfg.registry, "build_runs")}
-         WHERE run_id = ${lit(runId)} AND phase = 'tests' ORDER BY started_at DESC LIMIT 1`,
-        warehouse,
-      );
-      const testsRow = testsRows[0];
-      try {
-        const d = JSON.parse(testsRow?.detail ?? "{}") as { pass?: number; total?: number; rows?: number };
-        testsMeta = `${d.pass ?? "?"}/${d.total ?? "?"} pass · ${d.rows ?? "?"} rows`;
-      } catch {
-        testsMeta = testsRow?.status ?? "unknown";
-      }
-      if (testsRow?.status === "failed") await fail("tests", `expectations failed: ${testsMeta}`);
-      emit({ type: "step", step: "tests", status: "done", meta: testsMeta });
-      log(`✓ tests: ${testsMeta}`);
-
-      emit({ type: "step", step: "recon", status: "running" });
-      const reconId = randomUUID();
-      const reconRes = await runJobAndWait(dbx, reconJob, { ...jobParams, recon_id: reconId }, log, "recon");
-      if (!reconRes.ok) await fail("recon", `recon_runner ${reconRes.state}${reconRes.url ? ` (${reconRes.url})` : ""}`);
-      const reconRows = await dbx.sqlRows(
-        `SELECT key_match_rate, row_match_rate, attr_match_rate
-         FROM ${fq(cfg.registry, "recon_entity_result")} WHERE recon_id = ${lit(reconId)} LIMIT 1`,
-        warehouse,
-      );
-      const rr = reconRows[0];
-      recon = rr
-        ? {
-            keyMatchRate: rr.key_match_rate === null ? null : Number(rr.key_match_rate),
-            rowMatchRate: rr.row_match_rate === null ? null : Number(rr.row_match_rate),
-            attrMatchRate: rr.attr_match_rate === null ? null : Number(rr.attr_match_rate),
-          }
-        : null;
-      const pct = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(2)}%`);
-      emit({
-        type: "step",
-        step: "recon",
-        status: "done",
-        meta: recon ? `key ${pct(recon.keyMatchRate)} · attr ${pct(recon.attrMatchRate)}` : "no result row",
-      });
-      log(`✓ recon: key ${pct(recon?.keyMatchRate ?? null)} row ${pct(recon?.rowMatchRate ?? null)} attr ${pct(recon?.attrMatchRate ?? null)}`);
+    // tests detail row is written by the runner even on failure paths that reach it
+    const testsRows = await dbx.sqlRows(
+      `SELECT status, detail FROM ${fq(cfg.registry, "build_runs")}
+       WHERE run_id = ${lit(runId)} AND phase = 'tests' ORDER BY started_at DESC LIMIT 1`,
+      warehouse,
+    );
+    const testsRow = testsRows[0];
+    let testsMeta = "";
+    try {
+      const d = JSON.parse(testsRow?.detail ?? "{}") as { pass?: number; total?: number; rows?: number };
+      testsMeta = `${d.pass ?? "?"}/${d.total ?? "?"} pass · ${d.rows ?? "?"} rows`;
+    } catch {
+      testsMeta = testsRow?.status ?? "no result";
     }
 
-    // 7. PR with evidence (recon-bearing when runners ran)
+    if (!pipeRes.ok) {
+      const failedOnTests = testsRow?.status === "failed";
+      const step: BuildStep = failedOnTests ? "tests" : "pipeline_run";
+      emit({ type: "step", step, status: "failed", meta: failedOnTests ? testsMeta : pipeRes.state });
+      return {
+        ok: false,
+        failedStep: step,
+        evidence: `${step} failed. Job state: ${pipeRes.state} ${pipeRes.message}\nTests detail: ${testsRow?.detail ?? "n/a"}`,
+        testsMeta,
+      };
+    }
+    emit({ type: "step", step: "pipeline_run", status: "done", meta: spec!.target.entity });
+    emit({ type: "step", step: "tests", status: "done", meta: testsMeta });
+    log(`✓ tests: ${testsMeta}`);
+
+    emit({ type: "step", step: "recon", status: "running" });
+    const reconId = randomUUID();
+    const reconRes = await runJobAndWait(dbx, reconJob, { ...jobParams, recon_id: reconId }, log, "recon");
+    if (!reconRes.ok) {
+      emit({ type: "step", step: "recon", status: "failed", meta: reconRes.state });
+      return { ok: false, failedStep: "recon", evidence: `recon job failed: ${reconRes.state} ${reconRes.message}`, testsMeta };
+    }
+    const reconRows = await dbx.sqlRows(
+      `SELECT key_match_rate, row_match_rate, attr_match_rate
+       FROM ${fq(cfg.registry, "recon_entity_result")} WHERE recon_id = ${lit(reconId)} LIMIT 1`,
+      warehouse,
+    );
+    const rr = reconRows[0];
+    const recon = rr
+      ? {
+          keyMatchRate: rr.key_match_rate === null ? null : Number(rr.key_match_rate),
+          rowMatchRate: rr.row_match_rate === null ? null : Number(rr.row_match_rate),
+          attrMatchRate: rr.attr_match_rate === null ? null : Number(rr.attr_match_rate),
+        }
+      : null;
+    const pct = (v: number | null | undefined) => (v === null || v === undefined ? "n/a" : `${(v * 100).toFixed(2)}%`);
+
+    const belowThreshold =
+      recon !== null &&
+      ((recon.keyMatchRate ?? 1) < cfg.PF_RECON_MIN_KEY || (recon.attrMatchRate ?? 1) < cfg.PF_RECON_MIN_ATTR);
+    if (belowThreshold) {
+      emit({ type: "step", step: "recon", status: "failed", meta: `key ${pct(recon!.keyMatchRate)} · attr ${pct(recon!.attrMatchRate)} below threshold` });
+      const diffs = await dbx.sqlRows(
+        `SELECT key_value, column_name FROM ${fq(cfg.registry, "recon_record_diff")}
+         WHERE recon_id = ${lit(reconId)} LIMIT 10`,
+        warehouse,
+      );
+      return {
+        ok: false,
+        failedStep: "recon",
+        evidence:
+          `recon below threshold (key ${pct(recon!.keyMatchRate)} < ${cfg.PF_RECON_MIN_KEY} or attr ${pct(recon!.attrMatchRate)} < ${cfg.PF_RECON_MIN_ATTR}).\n` +
+          `Sample mismatched records: ${JSON.stringify(diffs)}`,
+        testsMeta,
+        recon,
+      };
+    }
+    emit({ type: "step", step: "recon", status: "done", meta: `key ${pct(recon?.keyMatchRate)} · attr ${pct(recon?.attrMatchRate)}` });
+    log(`✓ recon: key ${pct(recon?.keyMatchRate)} row ${pct(recon?.rowMatchRate)} attr ${pct(recon?.attrMatchRate)}`);
+    return { ok: true, recon, testsMeta };
+  };
+
+  try {
+    let result = await renderAndCommit(commitMessage(spec));
+    await stage(result.files);
+    let outcome = await attempt();
+
+    // ---- bounded fix loop (constraint #2: spec deltas only) ----
+    while (!outcome.ok) {
+      if (fixIterations.length >= cfg.MAX_FIX_ITERATIONS) {
+        await recordFailure(
+          `fix loop exhausted after ${cfg.MAX_FIX_ITERATIONS} iterations — needs human. Last failure: ${outcome.evidence?.slice(0, 200)}`,
+          true,
+        );
+      }
+      const iteration = fixIterations.length + 1;
+      log(`▸ fix loop: attempt ${iteration} of ${cfg.MAX_FIX_ITERATIONS} — asking LLM for a spec delta`);
+      const delta = await fmapi.structured({
+        purpose: "fix_loop_delta",
+        system: FIX_SYSTEM_PROMPT,
+        user: buildFixUserPrompt(JSON.stringify(spec), outcome.evidence ?? "unknown failure"),
+        schema: SpecDeltaSchema,
+        schemaName: "spec_delta",
+      });
+      if (delta.columns.length === 0 && delta.expectations.length === 0) {
+        await recordFailure(`fix loop: LLM judged failure unfixable by spec change — ${delta.reason}`, true);
+      }
+      fixIterations.push({ iteration, reason: delta.reason });
+      emit({ type: "fix", iteration, maxIterations: cfg.MAX_FIX_ITERATIONS, meta: delta.reason });
+      log(`▸ fix ${iteration}: ${delta.reason}`);
+
+      spec = applyDelta(spec, delta);
+      await registry.insertVersion(spec, `fix-loop ${iteration}: ${delta.reason}`, "fix-loop");
+      result = await renderAndCommit(
+        `fix(${spec.entity}): iteration ${iteration} — ${delta.reason.slice(0, 60)}\n\nspec_id: ${spec.spec_id}\nspec_version: ${spec.spec_version}\ngenerated_by: pipeline_factory`,
+      );
+      await stage(result.files);
+      outcome = await attempt();
+    }
+
+    // ---- PR with evidence (human gate #2 — merge is never automated) ----
     emit({ type: "step", step: "pr", status: "running" });
     const evidence = buildEvidenceMarkdown({
       spec,
-      files,
+      files: result.files,
       approvedBy: reg.approved_by ?? null,
       buildRunId: runId,
-      fixIterations: [],
-      recon,
+      fixIterations,
+      recon: outcome.recon ?? null,
     });
-    await cicd.commitFiles(branch, [{ path: `pipelines/${spec.entity}/EVIDENCE.md`, content: evidence }], `docs(${spec.entity}): build evidence\n\nspec_id: ${spec.spec_id}\nspec_version: ${spec.spec_version}`);
+    await cicd.commitFiles(
+      branch,
+      [{ path: `pipelines/${spec.entity}/EVIDENCE.md`, content: evidence }],
+      `docs(${spec.entity}): build evidence\n\nspec_id: ${spec.spec_id}\nspec_version: ${spec.spec_version}`,
+    );
     const pr = await cicd.openPullRequest(
       branch,
       `[pipeline-factory] ${spec.entity} ingestion (spec ${spec.spec_id} v${spec.spec_version})`,
@@ -248,7 +348,8 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
 
     await dbx.sql(
       `UPDATE ${fq(cfg.registry, "build_runs")}
-       SET phase = 'pr_open', status = 'succeeded', pr_url = ${lit(pr.url)}, finished_at = current_timestamp()
+       SET phase = 'pr_open', status = 'succeeded', fix_iteration = ${fixIterations.length},
+           pr_url = ${lit(pr.url)}, finished_at = current_timestamp()
        WHERE run_id = ${lit(runId)}`,
       warehouse,
     );
@@ -256,15 +357,14 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     emit({ type: "done", pr: { url: pr.url, number: pr.number }, run_id: runId });
     return { runId, prUrl: pr.url };
   } catch (err) {
-    // fail() already recorded step-level failures; record unexpected ones
-    if (!(err instanceof Error && err.message.length < 501)) {
+    // recordFailure already handled bookkeeping for controlled failures
+    if (!(err instanceof Error && err.message.startsWith("fix loop"))) {
       await dbx.sql(
         `UPDATE ${fq(cfg.registry, "build_runs")}
          SET status = 'failed', detail = ${lit(String(err).slice(0, 500))}, finished_at = current_timestamp()
-         WHERE run_id = ${lit(runId)}`,
+         WHERE run_id = ${lit(runId)} AND status = 'running'`,
         warehouse,
       );
-      emit({ type: "error", text: String(err).slice(0, 500) });
     }
     throw err;
   }

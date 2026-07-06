@@ -22,6 +22,9 @@ const EnvSchema = z.object({
    * owns — runners must read staged artifacts and write results (ADR-006).
    */
   PF_RUNNER_PRINCIPAL: z.string().default(""),
+  /** recon thresholds — below either triggers the fix loop */
+  PF_RECON_MIN_KEY: z.coerce.number().min(0).max(1).default(0.98),
+  PF_RECON_MIN_ATTR: z.coerce.number().min(0).max(1).default(0.98),
   /** local-dev identity stub when Apps forwarded headers are absent */
   PF_DEV_USER_EMAIL: z.string().default(""),
 });

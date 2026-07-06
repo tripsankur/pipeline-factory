@@ -20,6 +20,12 @@ export interface JobRunState {
     state_message?: string;
   };
   run_page_url?: string;
+  tasks?: { run_id: number }[];
+}
+
+export interface JobRunOutput {
+  error?: string;
+  error_trace?: string;
 }
 
 export class DbxClient {
@@ -98,6 +104,11 @@ export class DbxClient {
 
   async jobGetRun(runId: number): Promise<JobRunState> {
     return this.request("GET", `/api/2.2/jobs/runs/get?run_id=${runId}`);
+  }
+
+  /** Task-level output — the real error text for failed Python task runs. */
+  async jobGetRunOutput(taskRunId: number): Promise<JobRunOutput> {
+    return this.request("GET", `/api/2.2/jobs/runs/get-output?run_id=${taskRunId}`);
   }
 
   // ---- Files (UC volumes) ----

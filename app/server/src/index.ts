@@ -38,7 +38,7 @@ registerHealthRoutes(app);
 registerSettingsRoutes(app, dbx, cfg);
 registerSpecRoutes(app, registry, fmapi, cfg);
 registerRenderRoutes(app, registry);
-registerBuildRoutes(app, registry, dbx, cfg);
+registerBuildRoutes(app, registry, dbx, cfg, fmapi);
 registerFleetRoutes(app, registry, dbx, cfg);
 
 // serve built client (dist/public next to the bundled server)

@@ -24,6 +24,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
   const [steps, setSteps] = useState<Record<string, StepState>>(initialSteps);
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [fixes, setFixes] = useState<{ iteration: number; max: number; reason: string }[]>([]);
   const [result, setResult] = useState<{ pr?: { url: string; number: number }; error?: string } | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -38,6 +39,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
     if (!specId || running) return;
     setSteps(initialSteps());
     setLogs([]);
+    setFixes([]);
     setResult(null);
     setRunning(true);
     cancelRef.current = streamBuild(
@@ -47,6 +49,11 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
           setSteps((s) => ({ ...s, [e.step!]: { status: e.status ?? "pending", meta: e.meta ?? "" } }));
         } else if (e.type === "log" && e.text) {
           setLogs((l) => [...l, e.text!]);
+        } else if (e.type === "fix") {
+          setFixes((f) => [
+            ...f,
+            { iteration: e.iteration ?? f.length + 1, max: e.maxIterations ?? 3, reason: e.meta ?? "" },
+          ]);
         } else if (e.type === "done") {
           setResult({ pr: e.pr });
         } else if (e.type === "error") {
@@ -196,6 +203,39 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
           <div ref={logEndRef} />
         </div>
       </Card>
+
+      {/* fix-loop card — attempt N of MAX + AI root cause, per design */}
+      {fixes.length > 0 && (
+        <Card style={{ borderColor: "var(--pf-warn)", padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: "var(--pf-warn)" }}>
+              Fix loop — attempt {fixes[fixes.length - 1]!.iteration} of {fixes[fixes.length - 1]!.max}
+            </span>
+            <span style={{ display: "flex", gap: 4 }}>
+              {Array.from({ length: fixes[fixes.length - 1]!.max }, (_, i) => (
+                <span
+                  key={i}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: i < fixes.length ? "var(--pf-warn)" : "var(--pf-bd2)",
+                  }}
+                />
+              ))}
+            </span>
+          </div>
+          {fixes.map((f) => (
+            <div key={f.iteration} style={{ fontSize: 12.5, color: "var(--pf-tsec)", padding: "3px 0" }}>
+              <span style={{ fontFamily: "var(--pf-font-mono)", color: "var(--pf-tmut)" }}>#{f.iteration}</span>{" "}
+              {f.reason}
+            </div>
+          ))}
+          <p style={{ fontSize: 11.5, color: "var(--pf-tmut)", margin: "8px 0 0" }}>
+            The LLM edits the spec, never files — each fix re-renders, re-stages, re-runs (constraint #2).
+          </p>
+        </Card>
+      )}
 
       {/* shown only when runner jobs are not wired (e.g. local dev without bundle jobs) */}
       {Object.values(steps).some((s) => s.status === "deferred") && (

@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { createRenderer, fq } from "@pf/core";
-import { GitHubCicdAdapter, MockCicdAdapter, type CicdAdapter } from "@pf/adapters";
+import { GitHubCicdAdapter, MockCicdAdapter, type CicdAdapter, type FmapiClient } from "@pf/adapters";
 import type { DbxClient } from "@pf/dbx";
 import type { RegistryClient } from "../lib/registry-client.js";
 import { executeBuild, type BuildEvent } from "../lib/build-executor.js";
@@ -29,10 +29,11 @@ export function registerBuildRoutes(
   registry: RegistryClient,
   dbx: DbxClient,
   cfg: AppConfig,
+  fmapi: FmapiClient,
 ): void {
   const render = createRenderer({ templatesDir: resolveTemplatesDir() });
   const cicd = makeCicdAdapter(cfg);
-  const deps = { registry, dbx, cfg, cicd, render };
+  const deps = { registry, dbx, cfg, cicd, render, fmapi };
 
   /** One-shot build (JSON response). */
   app.post("/api/specs/:id/build", async (req, reply) => {

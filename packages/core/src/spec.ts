@@ -121,10 +121,16 @@ export type Expectation = z.infer<typeof ExpectationSchema>;
  */
 export const SpecDeltaSchema = z.object({
   reason: z.string().min(1),
-  /** columns to replace, matched by `name` */
-  columns: z.array(ColumnMappingSchema).default([]),
+  /** columns to replace, matched by `name` (LLMs emit null for "none") */
+  columns: z
+    .array(ColumnMappingSchema)
+    .nullish()
+    .transform((v) => v ?? []),
   /** expectations to replace, matched by `name` */
-  expectations: z.array(ExpectationSchema).default([]),
+  expectations: z
+    .array(ExpectationSchema)
+    .nullish()
+    .transform((v) => v ?? []),
 });
 
 export type SpecDelta = z.infer<typeof SpecDeltaSchema>;

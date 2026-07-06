@@ -117,11 +117,13 @@ export interface FeatureDef {
 }
 
 export interface BuildEvent {
-  type: "step" | "log" | "done" | "error";
+  type: "step" | "log" | "fix" | "done" | "error";
   step?: string;
   status?: "running" | "done" | "deferred" | "failed";
   meta?: string;
   text?: string;
+  iteration?: number;
+  maxIterations?: number;
   pr?: { url: string; number: number };
   run_id?: string;
 }

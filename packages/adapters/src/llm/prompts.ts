@@ -70,7 +70,8 @@ A pipeline build or reconciliation failed. You receive the current spec and the 
 Produce ONLY a spec delta JSON matching the provided schema:
 - "reason": one sentence root cause.
 - "columns": ONLY the column mappings that must change, complete replacement entries.
-- "expectations": ONLY expectations to change or add.
+  Always an array — use [] when no column changes, never null.
+- "expectations": ONLY expectations to change or add. Always an array, never null.
 Never propose file edits — files are rendered from the spec. If the failure cannot be fixed by
 changing the spec, return an empty columns/expectations delta with reason explaining why a human is needed.`;
 
