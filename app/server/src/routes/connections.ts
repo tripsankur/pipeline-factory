@@ -47,6 +47,8 @@ const IngestionBody = z.object({
   source_system: z.string().min(1).regex(/^[a-z][a-z0-9_]*$/),
   destination_catalog: z.string().default("workspace"),
   destination_schema: z.string().default("bronze"),
+  /** SaaS connectors expose objects under a fixed source schema (Salesforce: "objects") */
+  source_schema: z.string().default("objects"),
   tables: z.array(z.object({ source_object: z.string().min(1) })).min(1),
 });
 
@@ -205,6 +207,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
           connection_name: body.connection_name,
           objects: body.tables.map((t) => ({
             table: {
+              source_schema: body.source_schema,
               source_table: t.source_object,
               destination_catalog: body.destination_catalog,
               destination_schema: body.destination_schema,
