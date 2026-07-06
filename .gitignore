@@ -14,3 +14,12 @@ __pycache__/
 .pytest_cache/
 .databricks/
 CLAUDE.local.md
+
+# scratch
+*.json.tmp
+gen_*.json
+spec_*.json
+approve*.json
+reapprove.json
+parse.json
+contact_sid.txt
