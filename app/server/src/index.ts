@@ -15,6 +15,7 @@ import { registerSpecRoutes } from "./routes/specs.js";
 import { registerRenderRoutes } from "./routes/render.js";
 import { registerBuildRoutes } from "./routes/build.js";
 import { registerFleetRoutes } from "./routes/fleet.js";
+import { registerConnectionRoutes } from "./routes/connections.js";
 
 const cfg = loadConfig();
 const app = Fastify({ logger: true, bodyLimit: 20 * 1024 * 1024 });
@@ -40,6 +41,7 @@ registerSpecRoutes(app, registry, fmapi, cfg);
 registerRenderRoutes(app, registry);
 registerBuildRoutes(app, registry, dbx, cfg, fmapi);
 registerFleetRoutes(app, registry, dbx, cfg);
+registerConnectionRoutes(app, dbx, cfg);
 
 // serve built client (dist/public next to the bundled server)
 const here = dirname(fileURLToPath(import.meta.url));

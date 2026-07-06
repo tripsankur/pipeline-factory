@@ -43,6 +43,7 @@ target:
 
 tables:
   - name: account
+    source_object: Account
     description: Salesforce Account object
     primary_key: [Id]
     columns:
@@ -72,6 +73,7 @@ tables:
         description: Record creation timestamp
 
   - name: contact
+    source_object: Contact
     description: Salesforce Contact object
     primary_key: [Id]
     columns:

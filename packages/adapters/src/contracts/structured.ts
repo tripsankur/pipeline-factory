@@ -15,6 +15,7 @@ export interface StructuredParseResult {
 
 export interface ParsedTableContract extends ParsedContract {
   table: string;
+  sourceObject: string;
   mode: "snapshot" | "incremental" | "cdc";
   cursorColumn: string | null;
   primaryKey: string[];
@@ -72,6 +73,7 @@ export class StructuredContractAdapter {
       narrative,
       sourceKind: "csv", // reuses the ParsedContract wire shape; kind refined below
       table: t.name,
+      sourceObject: t.source_object ?? t.name,
       mode: t.mode ?? c.ingestion.default_mode,
       cursorColumn: t.cursor_column,
       primaryKey: t.primary_key,

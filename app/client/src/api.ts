@@ -149,6 +149,7 @@ async function json<T>(res: Response): Promise<T> {
 
 export interface ParsedTableContract extends ParsedContract {
   table: string;
+  sourceObject: string;
   mode: "snapshot" | "incremental" | "cdc";
   cursorColumn: string | null;
   primaryKey: string[];

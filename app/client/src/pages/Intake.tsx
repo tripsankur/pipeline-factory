@@ -64,6 +64,25 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
     onError: (e) => toast(String(e).slice(0, 160), "bad"),
   });
 
+  const [connectionName, setConnectionName] = useState("sfdc_sample");
+  const ingest = useMutation({
+    mutationFn: async () => {
+      const r = await fetch("/api/ingestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          connection_name: connectionName,
+          source_system: structured!.contract_info.source_system,
+          tables: structured!.tables.map((t) => ({ source_object: t.sourceObject })),
+        }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<{ pipeline_id: string; name: string }>;
+    },
+    onSuccess: (r) => toast(`Ingestion batch ${r.name} created + started (pipeline ${r.pipeline_id.slice(0, 8)}…)`),
+    onError: (e) => toast(String(e).slice(0, 240), "bad"),
+  });
+
   const onFile = (file: File | undefined) => {
     if (file) parse.mutate(file);
   };
@@ -172,6 +191,29 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
                 <Mono>{desc}</Mono>
               </div>
             ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "0 0 12px" }}>
+            <span style={{ fontSize: 10.8, color: "var(--pf-tsec)" }}>UC connection</span>
+            <input
+              value={connectionName}
+              onChange={(e) => setConnectionName(e.target.value)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid var(--pf-bd2)",
+                background: "var(--pf-input-bg)",
+                color: "var(--pf-tpri)",
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: 11.2,
+                width: 180,
+              }}
+            />
+            <Button onClick={() => ingest.mutate()} disabled={ingest.isPending || !connectionName}>
+              {ingest.isPending ? "Creating batch…" : `Create ingestion batch (${structured.tables.length} tables)`}
+            </Button>
+            <span style={{ fontSize: 10.4, color: "var(--pf-tmut)" }}>
+              one Lakeflow pipeline pulls the whole source → bronze
+            </span>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
             <thead>

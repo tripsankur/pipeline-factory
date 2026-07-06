@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card } from "../components/ui";
+import ConnectionsManager from "../components/ConnectionsManager";
 
 interface ConnectionStatus {
   name: string;
@@ -21,9 +22,10 @@ export default function Settings() {
   const features = useQuery({ queryKey: ["features"], queryFn: api.features });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
+      <ConnectionsManager />
       <div>
-        <h3 style={{ fontSize: 12.8, margin: "0 0 10px" }}>Connections</h3>
+        <h3 style={{ fontSize: 12.8, margin: "0 0 10px" }}>Platform health</h3>
         {connections.isLoading && <p style={{ color: "var(--pf-tsec)" }}>Checking…</p>}
         {connections.isError && <p style={{ color: "var(--pf-bad)" }}>{String(connections.error)}</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

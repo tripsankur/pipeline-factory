@@ -138,4 +138,37 @@ export class DbxClient {
   async currentUser(): Promise<{ userName: string }> {
     return this.request("GET", "/api/2.0/preview/scim/v2/Me");
   }
+
+  // ---- Unity Catalog connections ----
+
+  async connectionsList(): Promise<{ connections?: { name: string; connection_type: string; comment?: string; created_at?: number }[] }> {
+    return this.request("GET", "/api/2.1/unity-catalog/connections");
+  }
+
+  async connectionCreate(body: {
+    name: string;
+    connection_type: string;
+    comment?: string;
+    options: Record<string, string>;
+  }): Promise<{ name: string }> {
+    return this.request("POST", "/api/2.1/unity-catalog/connections", body);
+  }
+
+  async connectionDelete(name: string): Promise<void> {
+    await this.request("DELETE", `/api/2.1/unity-catalog/connections/${encodeURIComponent(name)}`);
+  }
+
+  // ---- Pipelines (managed ingestion / Lakeflow Connect) ----
+
+  async pipelineCreate(body: Record<string, unknown>): Promise<{ pipeline_id: string }> {
+    return this.request("POST", "/api/2.0/pipelines", body);
+  }
+
+  async pipelineStartUpdate(pipelineId: string): Promise<{ update_id: string }> {
+    return this.request("POST", `/api/2.0/pipelines/${pipelineId}/updates`, {});
+  }
+
+  async pipelineGet(pipelineId: string): Promise<{ state?: string; latest_updates?: { update_id: string; state: string }[]; name?: string }> {
+    return this.request("GET", `/api/2.0/pipelines/${pipelineId}`);
+  }
 }
