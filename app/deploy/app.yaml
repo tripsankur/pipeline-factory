@@ -16,3 +16,7 @@ env:
     valueFrom: recon-runner-job
   - name: PF_RUNNER_PRINCIPAL
     value: "ankurtripathi.cs@gmail.com"
+  - name: PF_GITHUB_REPO
+    value: "tripsankur/databricks-brnz-ingestion"
+  - name: GITHUB_TOKEN
+    valueFrom: github-token

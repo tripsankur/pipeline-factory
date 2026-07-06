@@ -104,6 +104,11 @@ resources:
           job:
             id: ${resources.jobs.recon_runner.id}
             permission: "CAN_MANAGE_RUN"
+        - name: "github-token"
+          secret:
+            scope: "pipeline_factory"
+            key: "github_token"
+            permission: "READ"
 
 targets:
   dev:
