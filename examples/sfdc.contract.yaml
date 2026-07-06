@@ -1,0 +1,105 @@
+# Interface Contract — Salesforce sample org as SOURCE (Lakeflow Connect managed connector).
+# Connectivity note: the managed connector authenticates via a Unity Catalog Connection
+# (OAuth). secret_scope carries the UC connection name using the `uc:` prefix convention.
+contract:
+  format_version: 1
+  id: IC-SFDC-001
+  name: Salesforce sample org core objects
+  version: 1
+
+source:
+  system: sfdc
+  kind: api
+  owner_team: CRM Platform
+  owner_email: crm-platform@example.com
+
+connectivity:
+  dev:
+    host: login.salesforce.com          # sample/dev org login endpoint
+    port: 443
+    protocol: https
+    auth_method: oauth_m2m
+    secret_scope: "uc:sfdc_sample"      # UC Connection name (Lakeflow Connect)
+    namespace: ""
+    notes: OAuth via Unity Catalog Connection; consent granted in workspace UI
+  prod:
+    host: login.salesforce.com
+    port: 443
+    protocol: https
+    auth_method: oauth_m2m
+    secret_scope: "uc:sfdc_prod"
+    namespace: ""
+    notes: placeholder — prod org connection created at cutover
+
+ingestion:
+  default_mode: snapshot
+  batch_schedule: "0 0 3 * * ?"
+
+target:
+  system: lakehouse
+  catalog: workspace
+  bronze_schema: bronze
+  silver_schema: silver
+
+tables:
+  - name: account
+    description: Salesforce Account object
+    primary_key: [Id]
+    columns:
+      - name: Id
+        type: id
+        nullable: false
+        description: Salesforce record id
+      - name: Name
+        type: string
+        nullable: false
+        description: Account name
+      - name: Type
+        type: picklist
+        nullable: true
+        description: Account type
+      - name: Industry
+        type: picklist
+        nullable: true
+        description: Industry
+      - name: AnnualRevenue
+        type: currency
+        nullable: true
+        description: Annual revenue
+      - name: CreatedDate
+        type: datetime
+        nullable: false
+        description: Record creation timestamp
+
+  - name: contact
+    description: Salesforce Contact object
+    primary_key: [Id]
+    columns:
+      - name: Id
+        type: id
+        nullable: false
+        description: Salesforce record id
+      - name: AccountId
+        type: reference
+        nullable: true
+        description: Parent account
+        pii: false
+      - name: FirstName
+        type: string
+        nullable: true
+        description: First name
+        pii: true
+      - name: LastName
+        type: string
+        nullable: false
+        description: Last name
+        pii: true
+      - name: Email
+        type: email
+        nullable: true
+        description: Email address
+        pii: true
+      - name: CreatedDate
+        type: datetime
+        nullable: false
+        description: Record creation timestamp
