@@ -177,16 +177,20 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
       return fail(`token exchange failed: ${token.error ?? tokenRes.status} ${token.error_description ?? ""}`);
     }
 
+    // Credentials must never be stripped — a connection without them is useless.
+    const CREDENTIAL_KEYS = new Set(["client_id", "client_secret", "refresh_token", "oauth_refresh_token", "pkce_verifier"]);
     const options: Record<string, string> = {
       client_id: p.clientId,
       client_secret: p.clientSecret,
       refresh_token: token.refresh_token,
+      oauth_refresh_token: token.refresh_token,
       instance_url: token.instance_url ?? "",
       is_sandbox: String(p.isSandbox),
     };
-    // The connector's supported option set varies by workspace version. On
-    // "does not support the following option(s): X, Y" strip those and retry.
-    for (let attempt = 0; attempt < 3; attempt++) {
+    // The connector's supported option set varies by version. Strip ONLY
+    // rejected non-credential options and retry; a rejected credential is fatal
+    // (surface the connector's "Supported options: …" so we use the right keys).
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
         await dbx.connectionCreate({
           name: p.name,
@@ -197,12 +201,14 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
         break;
       } catch (err) {
         const msg = String(err);
-        const m = /does not support the following option\(s\): ([^.]+)\./.exec(msg);
-        if (m?.[1] && attempt < 2) {
-          for (const key of m[1].split(",").map((s) => s.trim())) delete options[key];
+        const m = /does not support the following option\(s\): ([^.]+?)\./.exec(msg);
+        const rejected = m?.[1]?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+        const strippable = rejected.filter((k) => !CREDENTIAL_KEYS.has(k) && k in options);
+        if (strippable.length > 0 && attempt < 3) {
+          for (const key of strippable) delete options[key];
           continue;
         }
-        return fail(`UC connection create failed: ${msg.slice(0, 250)}`);
+        return fail(`UC connection create failed: ${msg.slice(0, 400)}`);
       }
     }
     await shareConnection(p.name);
