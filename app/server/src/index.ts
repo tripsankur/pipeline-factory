@@ -30,6 +30,7 @@ const dbx = new DbxClient();
 const warehouseStore = new WarehouseStore(dbx, cfg.DATABRICKS_WAREHOUSE_ID, cfg.registry);
 let registry: RegistryStore = warehouseStore;
 let pgStore: PgStore | null = null;
+let pgError: string | null = null;
 if (cfg.PF_PG_ENABLED === "true" && cfg.PGHOST) {
   try {
     pgStore = new PgStore();
@@ -38,11 +39,13 @@ if (cfg.PF_PG_ENABLED === "true" && cfg.PGHOST) {
     registry = pgStore;
     app.log.info({ copied }, "lakebase store active (pg migration + backfill complete)");
   } catch (err) {
+    pgError = String(err).slice(0, 400);
     app.log.error({ err }, "lakebase store unavailable — falling back to warehouse");
     registry = warehouseStore;
     pgStore = null;
   }
 } else {
+  pgError = cfg.PGHOST ? "PF_PG_ENABLED != true" : "PGHOST not injected";
   app.log.info("lakebase not configured (PGHOST absent or PF_PG_ENABLED != true) — warehouse store");
 }
 
@@ -59,7 +62,7 @@ const fmapi = new FmapiClient(
 
 await app.register(fastifyMultipart, { limits: { fileSize: 15 * 1024 * 1024 } });
 
-registerHealthRoutes(app);
+registerHealthRoutes(app, () => ({ store: registry.kind, pgHostPresent: Boolean(cfg.PGHOST), pgError }));
 registerSettingsRoutes(app, dbx, cfg);
 registerSpecRoutes(app, registry, fmapi, cfg);
 registerRenderRoutes(app, registry);

@@ -30,3 +30,7 @@ env:
     value: "pf-framework-recon"
   - name: PF_FRAMEWORK_MIN_VERSION
     value: "1.0.0"
+  # endpoint resource path for @databricks/lakebase credential minting (the
+  # runtime injects PGHOST/PGDATABASE but not always the endpoint path)
+  - name: LAKEBASE_ENDPOINT
+    value: "projects/pipeline-factory/branches/production/endpoints/primary"
