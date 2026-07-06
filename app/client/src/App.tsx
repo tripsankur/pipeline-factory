@@ -10,6 +10,7 @@ import BuildConsole from "./pages/BuildConsole";
 import Lineage from "./pages/Lineage";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Docs from "./pages/Docs";
 import { Card } from "./components/ui";
 import { ToastProvider } from "./components/Toast";
 
@@ -222,6 +223,7 @@ export default function App() {
           {page === "lineage" && <Lineage onOpenSpec={(id) => openSpec(id, "mapping")} />}
           {page === "history" && <History specId={activeSpecId} />}
           {page === "settings" && <Settings />}
+          {page === "docs" && <Docs />}
           {LOCKED_NAV.some((n) => n.id === page) && <ComingSoon id={page} />}
         </main>
       </div>

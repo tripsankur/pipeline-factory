@@ -19,7 +19,18 @@ export function resolveTemplatesDir(): string {
 }
 
 export function registerRenderRoutes(app: FastifyInstance, registry: RegistryClient): void {
-  const render = createRenderer({ templatesDir: resolveTemplatesDir() });
+  const templatesDir = resolveTemplatesDir();
+  const render = createRenderer({ templatesDir });
+
+  /** Downloadable Interface Contract template for the in-app docs. */
+  app.get("/api/docs/contract-template", async (_req, reply) => {
+    const { readFile } = await import("node:fs/promises");
+    const content = await readFile(join(templatesDir, "interface_contract.template.yaml"), "utf8");
+    return reply
+      .header("Content-Type", "text/yaml")
+      .header("Content-Disposition", 'attachment; filename="interface_contract.template.yaml"')
+      .send(content);
+  });
 
   /** W2: render artifacts from the latest approved spec version (preview + build input). */
   app.get("/api/specs/:id/artifacts", async (req, reply) => {
