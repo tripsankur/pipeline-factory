@@ -27,14 +27,15 @@ describe("buildManifest", () => {
   const manifest = buildManifest(spec, files);
 
   it("declares version, identity, artifacts with checksums, and both commands", () => {
-    expect(manifest).toContain("manifest_version: 1");
+    expect(manifest).toContain("manifest_version: 2");
+    expect(manifest).toContain("artifact_kind: metadata");
     expect(manifest).toContain("spec_id: spec-m3");
     expect(manifest).toContain("spec_version: 2");
     expect(manifest).toContain("- path: pipelines/orders/a.sql");
     expect(manifest).toContain("sha256: abc123");
     expect(manifest).toContain("verify: make verify");
     expect(manifest).toContain("deploy: databricks bundle deploy -t <target>");
-    expect(manifest).toContain("location: pipelines/orders/EVIDENCE.md");
+    expect(manifest).toContain("location: metadata/aldm/orders/EVIDENCE.md");
   });
 });
 

@@ -1,0 +1,37 @@
+# dataflow.yml — DataflowSpec metadata for {{ row.entity }} (ADR-008: metadata, never code)
+# Executed by the generic engine in databricks-ingestion-framework; this file
+# mirrors the row MERGEd into ctl.dataflow_spec by Pipeline Factory.
+# generated_by: {{ tag.generated_by }} · spec_id: {{ tag.spec_id }} · spec_version: {{ tag.spec_version }}
+dataflow_id: {{ row.dataflow_id }}
+dataflow_group: {{ row.dataflow_group }}
+entity: {{ row.entity }}
+spec_version: {{ row.spec_version }}
+source_format: {{ row.source_format }}
+source_details:
+{% for k, v in row.source_details %}
+  {{ k }}: {{ v | yamlStr }}
+{% endfor %}
+target_details:
+{% for k, v in row.target_details %}
+  {{ k }}: {{ v | yamlStr }}
+{% endfor %}
+select_columns:
+{% for c in row.select_columns %}
+  - {{ c }}
+{% endfor %}
+crosswalk_keys: |
+{{ row.crosswalk_keys | jsonPretty | indent(2, true) }}
+column_transforms: |
+{{ row.column_transforms | jsonPretty | indent(2, true) }}
+data_quality_expectations: |
+{{ row.data_quality_expectations | jsonPretty | indent(2, true) }}
+{% if row.cdc_apply_changes %}
+cdc_apply_changes: |
+{{ row.cdc_apply_changes | jsonPretty | indent(2, true) }}
+{% endif %}
+is_active: {{ row.is_active }}
+framework_min_version: {{ row.framework_min_version }}
+ingest:
+  batch: {{ ingest.batch }}
+  mode: {{ ingest.mode }}
+  schedule: {{ schedule | yamlStr }}

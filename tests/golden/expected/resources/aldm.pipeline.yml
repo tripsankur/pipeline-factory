@@ -1,0 +1,64 @@
+# resources/aldm.pipeline.yml — standard Lakeflow assets for source "aldm"
+# (ADR-009: ingestion pipeline = what lands bronze; ETL pipeline = bronze->silver;
+#  workflow = when). Prod promotion: databricks bundle deploy applies this file.
+# generated_by: pipeline_factory · spec_id: spec-golden-001 · spec_version: 1
+resources:
+  pipelines:
+    brnz_aldm_ingest:
+      name: brnz_aldm_ingest
+      ingestion_definition:
+        connection_name: sfdc_sample
+        objects:
+          - table:
+              source_schema: objects
+              source_table: CONTRACT_ACCOUNT
+              destination_catalog: workspace
+              destination_schema: bronze
+              destination_table: aldm_contract_account
+              table_configuration:
+                scd_type: SCD_TYPE_1
+                primary_keys:
+                  - account_id
+                include_columns:
+                  - account_id
+                  - status_cd
+                  - balance_amt
+      serverless: true
+      channel: PREVIEW
+    slvr_aldm_etl:
+      name: slvr_aldm_etl
+      catalog: workspace
+      schema: silver
+      serverless: true
+      continuous: false
+      libraries:
+        - glob:
+            include: /Workspace/framework/engine/**
+      configuration:
+        pf.source: aldm
+        pf.spec_table: ${var.spec_table}
+        pf.env: ${bundle.target}
+        pf.engine_dir: ${var.framework_engine_dir}
+
+  jobs:
+    aldm_workflow:
+      name: aldm_workflow
+      tags:
+        generated_by: pipeline_factory
+      trigger:
+        pause_status: UNPAUSED
+        periodic:
+          interval: 1
+          unit: DAYS
+      # contract batch_schedule (quartz): 0 0 3 * * ?
+      tasks:
+        - task_key: ingest
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.brnz_aldm_ingest.id}
+            full_refresh: false
+        - task_key: etl
+          depends_on:
+            - task_key: ingest
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.slvr_aldm_etl.id}
+            full_refresh: false

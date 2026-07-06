@@ -10,6 +10,7 @@ export interface RegistryConfig {
 }
 
 const TAG_PROPS = `TBLPROPERTIES ('generated_by' = 'pipeline_factory')`;
+const CDF_PROPS = `TBLPROPERTIES ('generated_by' = 'pipeline_factory', 'delta.enableChangeDataFeed' = 'true')`;
 
 export function fq(cfg: RegistryConfig, table: string): string {
   return `\`${cfg.catalog}\`.\`${cfg.schema}\`.\`${table}\``;
@@ -57,6 +58,8 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       finished_at TIMESTAMP
     ) ${TAG_PROPS}`,
 
+    // CDF on the recon tables: they sync into Lakebase (triggered synced tables)
+    // for the reconciliation dashboard's ms-latency reads (ADR-007).
     `CREATE TABLE IF NOT EXISTS ${t("recon_runs")} (
       recon_id STRING NOT NULL,
       run_id STRING NOT NULL,
@@ -65,7 +68,7 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       status STRING NOT NULL,
       started_at TIMESTAMP NOT NULL,
       finished_at TIMESTAMP
-    ) ${TAG_PROPS}`,
+    ) ${CDF_PROPS}`,
 
     `CREATE TABLE IF NOT EXISTS ${t("recon_entity_result")} (
       recon_id STRING NOT NULL,
@@ -76,7 +79,7 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       row_match_rate DOUBLE,
       attr_match_rate DOUBLE,
       created_at TIMESTAMP NOT NULL
-    ) ${TAG_PROPS}`,
+    ) ${CDF_PROPS}`,
 
     `CREATE TABLE IF NOT EXISTS ${t("recon_record_diff")} (
       recon_id STRING NOT NULL,
@@ -86,7 +89,7 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       source_value STRING,
       target_value STRING,
       created_at TIMESTAMP NOT NULL
-    ) ${TAG_PROPS}`,
+    ) ${CDF_PROPS}`,
 
     `CREATE TABLE IF NOT EXISTS ${t("llm_calls")} (
       call_id STRING NOT NULL,
@@ -117,5 +120,31 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       sha256 STRING,
       staged_at TIMESTAMP NOT NULL
     ) ${TAG_PROPS}`,
+
+    // The metadata plane (ADR-008): one row per entity; executed by the
+    // framework's generic SDP engine. Tombstoned via is_active — never deleted
+    // (ADR-010: SDP drops managed datasets that vanish from its graph).
+    `CREATE TABLE IF NOT EXISTS ${t("dataflow_spec")} (
+      dataflow_id STRING NOT NULL,
+      dataflow_group STRING NOT NULL,
+      entity STRING NOT NULL,
+      spec_version INT NOT NULL,
+      source_format STRING NOT NULL,
+      source_details MAP<STRING,STRING>,
+      reader_config_options MAP<STRING,STRING>,
+      target_details MAP<STRING,STRING>,
+      select_columns ARRAY<STRING>,
+      crosswalk_keys STRING,
+      column_transforms STRING,
+      cdc_apply_changes STRING,
+      data_quality_expectations STRING,
+      table_properties MAP<STRING,STRING>,
+      cluster_by ARRAY<STRING>,
+      is_active BOOLEAN NOT NULL,
+      framework_min_version STRING,
+      created_at TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP NOT NULL,
+      created_by STRING
+    ) ${CDF_PROPS}`,
   ];
 }

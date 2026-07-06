@@ -24,3 +24,9 @@ env:
     value: "tripsankur/databricks-brnz-ingestion"
   - name: GITHUB_TOKEN
     valueFrom: github-token
+  - name: PF_FRAMEWORK_ENGINE_PATH
+    value: "/Workspace/Users/ankurtripathi.cs@gmail.com/.bundle/ingestion-framework/dev/files/engine"
+  - name: PF_FRAMEWORK_RECON_JOB_NAME
+    value: "pf-framework-recon"
+  - name: PF_FRAMEWORK_MIN_VERSION
+    value: "1.0.0"

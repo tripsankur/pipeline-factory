@@ -176,17 +176,60 @@ export class DbxClient {
     await this.request("DELETE", `/api/2.1/unity-catalog/connections/${encodeURIComponent(name)}`);
   }
 
-  // ---- Pipelines (managed ingestion / Lakeflow Connect) ----
+  // ---- Pipelines (Lakeflow: managed ingestion + declarative ETL) ----
 
   async pipelineCreate(body: Record<string, unknown>): Promise<{ pipeline_id: string }> {
     return this.request("POST", "/api/2.0/pipelines", body);
   }
 
-  async pipelineStartUpdate(pipelineId: string): Promise<{ update_id: string }> {
-    return this.request("POST", `/api/2.0/pipelines/${pipelineId}/updates`, {});
+  async pipelineUpdate(pipelineId: string, body: Record<string, unknown>): Promise<void> {
+    await this.request("PUT", `/api/2.0/pipelines/${pipelineId}`, { ...body, id: pipelineId });
+  }
+
+  async pipelineList(nameFilter?: string): Promise<{ statuses?: { pipeline_id: string; name: string; state?: string }[] }> {
+    const q = nameFilter ? `?filter=${encodeURIComponent(`name LIKE '${nameFilter}'`)}` : "";
+    return this.request("GET", `/api/2.0/pipelines${q}`);
+  }
+
+  async pipelineStartUpdate(pipelineId: string, opts?: { full_refresh?: boolean }): Promise<{ update_id: string }> {
+    return this.request("POST", `/api/2.0/pipelines/${pipelineId}/updates`, opts ?? {});
+  }
+
+  async pipelineGetUpdate(pipelineId: string, updateId: string): Promise<{ update?: { state: string } }> {
+    return this.request("GET", `/api/2.0/pipelines/${pipelineId}/updates/${updateId}`);
   }
 
   async pipelineGet(pipelineId: string): Promise<{ state?: string; latest_updates?: { update_id: string; state: string }[]; name?: string }> {
     return this.request("GET", `/api/2.0/pipelines/${pipelineId}`);
+  }
+
+  /** Pipeline event log — DQ expectation metrics + errors live here. */
+  async pipelineEvents(pipelineId: string, maxResults = 100): Promise<{ events?: { event_type?: string; level?: string; message?: string; details?: unknown; origin?: { flow_name?: string } }[] }> {
+    return this.request("GET", `/api/2.0/pipelines/${pipelineId}/events?max_results=${maxResults}`);
+  }
+
+  // ---- Jobs management (workflow provisioning) ----
+
+  async jobsList(name?: string): Promise<{ jobs?: { job_id: number; settings?: { name?: string } }[] }> {
+    const q = name ? `?name=${encodeURIComponent(name)}` : "";
+    return this.request("GET", `/api/2.2/jobs/list${q}`);
+  }
+
+  async jobCreate(settings: Record<string, unknown>): Promise<{ job_id: number }> {
+    return this.request("POST", "/api/2.2/jobs/create", settings);
+  }
+
+  /** Overwrite all settings of an existing job (idempotent provisioning). */
+  async jobReset(jobId: number, settings: Record<string, unknown>): Promise<void> {
+    await this.request("POST", "/api/2.2/jobs/reset", { job_id: jobId, new_settings: settings });
+  }
+
+  /** Read one secret (app SP needs READ on the scope). Value is base64. */
+  async secretGet(scope: string, key: string): Promise<string> {
+    const r = await this.request<{ value?: string }>(
+      "GET",
+      `/api/2.0/secrets/get?scope=${encodeURIComponent(scope)}&key=${encodeURIComponent(key)}`,
+    );
+    return Buffer.from(r.value ?? "", "base64").toString("utf8");
   }
 }

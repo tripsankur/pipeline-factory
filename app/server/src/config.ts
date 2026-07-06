@@ -17,7 +17,15 @@ const EnvSchema = z.object({
   PF_JOB_SFDC_INGEST: z.string().default(""),
   PF_TARGET: z.string().default("dev"),
   MAX_FIX_ITERATIONS: z.coerce.number().int().min(1).default(3),
-  /** runner job ids (injected via app resources; empty = runner steps deferred) */
+  /** workspace path of the deployed framework engine files (ADR-008/009) */
+  PF_FRAMEWORK_ENGINE_PATH: z
+    .string()
+    .default("/Workspace/Users/ankurtripathi.cs@gmail.com/.bundle/ingestion-framework/dev/files/engine"),
+  /** framework recon job name suffix (resolved to a job id at first use) */
+  PF_FRAMEWORK_RECON_JOB_NAME: z.string().default("pf-framework-recon"),
+  /** engine version floor written into every dataflow_spec row */
+  PF_FRAMEWORK_MIN_VERSION: z.string().default("1.0.0"),
+  /** DEPRECATED (superseded by framework jobs; removed in Phase 7) */
   PF_JOB_PIPELINE_RUNNER: z.string().default(""),
   PF_JOB_RECON_RUNNER: z.string().default(""),
   /**

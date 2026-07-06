@@ -5,9 +5,10 @@ import { Button, Card, Mono } from "../components/ui";
 const STEP_DEFS: { id: string; label: string }[] = [
   { id: "render", label: "Render" },
   { id: "branch", label: "Branch" },
-  { id: "deploy_dev", label: "Deploy dev" },
-  { id: "pipeline_run", label: "Pipeline run" },
-  { id: "tests", label: "Tests" },
+  { id: "spec_upsert", label: "Metadata" },
+  { id: "provision", label: "Provision" },
+  { id: "workflow_run", label: "Workflow" },
+  { id: "dq", label: "Data quality" },
   { id: "recon", label: "Recon" },
   { id: "pr", label: "PR" },
 ];
@@ -241,8 +242,8 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
       {Object.values(steps).some((s) => s.status === "deferred") && (
         <Card style={{ borderColor: "var(--pf-warn)", background: "var(--pf-warn-soft)", padding: "12px 18px" }}>
           <span style={{ fontSize: 10.8, color: "var(--pf-tsec)" }}>
-            <strong style={{ color: "var(--pf-warn)" }}>Runner steps deferred:</strong> runner job ids are
-            not configured in this environment — pipeline run / tests / recon were skipped, never simulated.
+            <strong style={{ color: "var(--pf-warn)" }}>Steps deferred:</strong> the framework recon job
+            was not found in this environment — deferred steps were skipped, never simulated.
           </span>
         </Card>
       )}

@@ -1,0 +1,76 @@
+# resources/{{ source }}.pipeline.yml — standard Lakeflow assets for source "{{ source }}"
+# (ADR-009: ingestion pipeline = what lands bronze; ETL pipeline = bronze->silver;
+#  workflow = when). Prod promotion: databricks bundle deploy applies this file.
+# generated_by: {{ tag.generated_by }} · spec_id: {{ tag.spec_id }} · spec_version: {{ tag.spec_version }}
+resources:
+  pipelines:
+{% if connection %}
+    brnz_{{ source }}_ingest:
+      name: brnz_{{ source }}_ingest
+      ingestion_definition:
+        connection_name: {{ connection }}
+        objects:
+{% for o in objects %}
+          - table:
+              source_schema: objects
+              source_table: {{ o.source_object }}
+              destination_catalog: {{ o.destination_catalog }}
+              destination_schema: {{ o.destination_schema }}
+              destination_table: {{ o.destination_table }}
+              table_configuration:
+                scd_type: {{ o.scd_type }}
+{% if o.primary_keys.length %}
+                primary_keys:
+{% for k in o.primary_keys %}
+                  - {{ k }}
+{% endfor %}
+{% endif %}
+                include_columns:
+{% for c in o.include_columns %}
+                  - {{ c }}
+{% endfor %}
+{% endfor %}
+      serverless: true
+      channel: PREVIEW
+{% endif %}
+    slvr_{{ source }}_etl:
+      name: slvr_{{ source }}_etl
+      catalog: {{ target.catalog }}
+      schema: {{ target.silver_schema }}
+      serverless: true
+      continuous: false
+      libraries:
+        - glob:
+            include: {{ engine_glob }}
+      configuration:
+        pf.source: {{ source }}
+        pf.spec_table: ${var.spec_table}
+        pf.env: ${bundle.target}
+        pf.engine_dir: ${var.framework_engine_dir}
+
+  jobs:
+    {{ source }}_workflow:
+      name: {{ source }}_workflow
+      tags:
+        generated_by: {{ tag.generated_by }}
+      trigger:
+        pause_status: UNPAUSED
+        periodic:
+          interval: 1
+          unit: DAYS
+      # contract batch_schedule (quartz): {{ schedule }}
+      tasks:
+{% if connection %}
+        - task_key: ingest
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.brnz_{{ source }}_ingest.id}
+            full_refresh: false
+{% endif %}
+        - task_key: etl
+{% if connection %}
+          depends_on:
+            - task_key: ingest
+{% endif %}
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.slvr_{{ source }}_etl.id}
+            full_refresh: false

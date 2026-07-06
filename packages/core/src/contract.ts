@@ -141,5 +141,9 @@ export function contractAudit(c: InterfaceContract): Record<string, unknown> {
     source_system: c.source.system,
     owner: c.source.owner_email,
     environments: Object.keys(c.connectivity),
+    batch_schedule: c.ingestion.batch_schedule,
+    // "uc:<name>" in the dev secret_scope names the UC connection backing the
+    // managed ingestion pipeline (ADR-009)
+    dev_secret_scope: c.connectivity["dev"]?.secret_scope ?? null,
   };
 }

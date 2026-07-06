@@ -4,7 +4,7 @@ import { registryDdl, fq } from "./registry.js";
 const cfg = { catalog: "workspace", schema: "ctl" };
 
 describe("registryDdl", () => {
-  it("creates schema plus all 8 registry tables", () => {
+  it("creates schema plus all registry tables (incl. the metadata plane)", () => {
     const ddl = registryDdl(cfg);
     expect(ddl[0]).toContain("CREATE SCHEMA IF NOT EXISTS");
     const tables = [
@@ -17,6 +17,7 @@ describe("registryDdl", () => {
       "llm_calls",
       "feature_events",
       "staged_artifacts",
+      "dataflow_spec",
     ];
     for (const t of tables) {
       expect(ddl.some((s) => s.includes(`\`${t}\``))).toBe(true);

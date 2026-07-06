@@ -1,0 +1,82 @@
+# dataflow.yml — DataflowSpec metadata for contract_account (ADR-008: metadata, never code)
+# Executed by the generic engine in databricks-ingestion-framework; this file
+# mirrors the row MERGEd into ctl.dataflow_spec by Pipeline Factory.
+# generated_by: pipeline_factory · spec_id: spec-golden-001 · spec_version: 1
+dataflow_id: spec-golden-001
+dataflow_group: aldm
+entity: contract_account
+spec_version: 1
+source_format: lakeflow_connect
+source_details:
+  source_object: "CONTRACT_ACCOUNT"
+  mode: "incremental"
+  cursor_column: "updated_ts"
+  connection: "sfdc_sample"
+target_details:
+  bronze_table: "workspace.bronze.aldm_contract_account"
+  silver_table: "workspace.silver.contract_account"
+  crosswalk_table: "workspace.silver.crosswalk_account"
+  batch: "brnz_aldm_batch"
+select_columns:
+  - account_id
+  - status_cd
+  - balance_amt
+crosswalk_keys: |
+  [
+    {
+      "source": "account_id",
+      "target": "sf_account_id"
+    }
+  ]
+column_transforms: |
+  [
+    {
+      "name": "account_id",
+      "target": "sf_account_id",
+      "type": "STRING",
+      "transform": null,
+      "compare": {
+        "enabled": true,
+        "normalize": null,
+        "tolerance": null
+      }
+    },
+    {
+      "name": "status_cd",
+      "target": "status",
+      "type": "STRING",
+      "transform": "CASE CASE WHEN src.`status_cd` = 'A' THEN 'Active' ELSE 'Inactive' END WHEN 'A' THEN 'Active' WHEN 'I' THEN 'Inactive' ELSE CASE WHEN src.`status_cd` = 'A' THEN 'Active' ELSE 'Inactive' END END",
+      "compare": {
+        "enabled": true,
+        "normalize": "UPPER(value)",
+        "tolerance": null
+      }
+    },
+    {
+      "name": "balance_amt",
+      "target": "balance",
+      "type": "DECIMAL(18,2)",
+      "transform": "CAST(src.`balance_amt` AS DECIMAL(18,2))",
+      "compare": {
+        "enabled": true,
+        "normalize": null,
+        "tolerance": 0.01
+      }
+    }
+  ]
+data_quality_expectations: |
+  {
+    "expect": {
+      "balance_non_negative": "balance >= 0"
+    },
+    "expect_or_drop": {},
+    "expect_or_fail": {
+      "account_id_not_null": "sf_account_id IS NOT NULL"
+    }
+  }
+is_active: true
+framework_min_version: 1.0.0
+ingest:
+  batch: brnz_aldm_batch
+  mode: batch
+  schedule: "0 0 3 * * ?"
