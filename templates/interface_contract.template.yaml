@@ -1,5 +1,8 @@
 # ══════════════════════════════════════════════════════════════════════════
-# Pipeline Factory — Interface Contract v1 (fill every MANDATORY field)
+# Pipeline Factory — Interface Contract v1 / v1.1 (fill every MANDATORY field)
+# v1.1 adds per-column `selected: false` (prune discovered columns) and per-table
+# `schema_source: discovered` — see docs/CONTRACT_FORMAT.md. Prefer discovery over
+# hand-typing columns: Intake → Discover source schema.
 # One contract = one source system + ALL tables to pull from it.
 # Upload this file on the Contract intake screen (.yaml).
 # ══════════════════════════════════════════════════════════════════════════

@@ -46,3 +46,22 @@ Optional `target` hints: `system`, `catalog`, `bronze_schema`, `silver_schema`.
 - **Connectivity**: environment endpoints and secret-scope names surface on intake for
   review; ingestion jobs resolve credentials from the named scopes at run time
   (constraint #4 — no secrets in code, spec, or git).
+
+## v1.1 — schema discovery + column selection
+
+`format_version: 1.1` adds two backward-compatible fields (v1 contracts still parse;
+everything defaults to v1 behavior):
+
+- **`selected`** (per column, default `true`) — whether the column is ingested. Discovered
+  contracts list ALL source fields; the reviewer prunes by setting `selected: false`.
+  Validation: primary-key columns must stay selected; every table needs ≥1 selected column.
+  Only selected columns flow into spec generation, `include_columns` of the managed
+  ingestion pipeline, and the engine's `select_columns`.
+- **`schema_source`** (per table, `declared` | `discovered`, default `declared`) — how the
+  column list was produced. `discovered` means it came from the live source (Intake →
+  **Discover source schema** pulls the true field list via
+  `POST /api/connections/{name}/discover` and exports contract-ready YAML).
+
+Why: hand-typed column subsets drift from reality (a real Salesforce Account has ~68
+queryable fields, not the 6 someone remembered). Discovery makes the contract the single
+source of truth that actually matches the source.
