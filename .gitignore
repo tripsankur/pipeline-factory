@@ -23,3 +23,4 @@ approve*.json
 reapprove.json
 parse.json
 contact_sid.txt
+*.tsbuildinfo
