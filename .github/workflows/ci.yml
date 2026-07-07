@@ -21,8 +21,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Typecheck + build all workspaces
-        run: pnpm -r build
+      - name: Typecheck + build all workspaces (deps first — fresh checkout has no dist/)
+        run: |
+          pnpm --filter @pf/core --filter @pf/dbx build
+          pnpm --filter @pf/adapters build
+          pnpm -r build
       - name: Unit + golden tests
         run: pnpm vitest run
 
