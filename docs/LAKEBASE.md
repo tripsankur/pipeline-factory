@@ -61,3 +61,19 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA recon GRANT SELECT ON TABLES TO "38ec922f-43a
 - `new_pipeline_spec.storage_catalog` must be a REGULAR UC catalog (`workspace`),
   never the Lakebase catalog (`pf_lakebase`).
 - Tokens expire hourly — handled by @databricks/lakebase; do not cache pg passwords.
+
+## Endpoint disabled out-of-band (observed on trial)
+
+Symptom: pg-backed routes return 500 `XX000: The endpoint has been disabled. Enable it
+using the API and retry.` (seen after heavy synced-table refresh activity on a trial
+workspace). Check + re-enable:
+
+```bash
+databricks postgres get-endpoint projects/pipeline-factory/branches/production/endpoints/primary
+databricks postgres update-endpoint projects/pipeline-factory/branches/production/endpoints/primary \
+  spec.disabled --json '{"spec":{"disabled":false}}'
+```
+
+The server wraps the pg store in a per-call warehouse fallback (`ResilientStore`), so
+reads keep working (slower) during an outage — but re-enable promptly: writes made via
+the fallback land in the warehouse tables, not Postgres.

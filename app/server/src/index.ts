@@ -10,6 +10,7 @@ import { loadConfig } from "./config.js";
 import { migrateRegistry } from "./lib/migrate.js";
 import { PgStore } from "./lib/store/pg-store.js";
 import { WarehouseStore } from "./lib/store/warehouse-store.js";
+import { ResilientStore } from "./lib/store/resilient-store.js";
 import type { RegistryStore } from "./lib/store/types.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
@@ -36,7 +37,11 @@ if (cfg.PF_PG_ENABLED === "true" && cfg.PGHOST) {
     pgStore = new PgStore();
     await pgStore.migrate();
     const copied = await pgStore.backfillFrom(warehouseStore);
-    registry = pgStore;
+    // per-call fallback: a mid-flight pg outage (endpoint disabled/suspended)
+    // degrades to warehouse reads instead of 500s
+    registry = new ResilientStore(pgStore, warehouseStore, (method, err) =>
+      app.log.warn({ method, err: String(err).slice(0, 200) }, "pg call failed — warehouse fallback"),
+    );
     app.log.info({ copied }, "lakebase store active (pg migration + backfill complete)");
   } catch (err) {
     pgError = String(err).slice(0, 400);
