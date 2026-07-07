@@ -45,12 +45,10 @@ resources:
       name: aldm_workflow
       tags:
         generated_by: pipeline_factory
-      trigger:
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: America/New_York
         pause_status: UNPAUSED
-        periodic:
-          interval: 1
-          unit: DAYS
-      # contract batch_schedule (quartz): 0 0 3 * * ?
       tasks:
         - task_key: ingest
           pipeline_task:

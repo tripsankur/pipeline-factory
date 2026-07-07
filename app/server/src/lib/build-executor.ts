@@ -226,12 +226,14 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
   // render + commit current spec state to the branch
   const renderAndCommit = async (message: string, sourceObjects: SourceObject[]): Promise<RenderResult> => {
     emit({ type: "step", step: "render", status: "running" });
+    // engineGlob deliberately NOT set: the rendered resources yml keeps the
+    // ${var.framework_engine_path} variable so any target can promote it
+    // (Codex P1 on PR #5); the provisioner uses the concrete path separately.
     const result = render(spec!, {
       ...(facts.connection ? { connectionName: facts.connection } : {}),
       ...(facts.schedule ? { batchSchedule: facts.schedule } : {}),
       frameworkMinVersion: cfg.PF_FRAMEWORK_MIN_VERSION,
       sourceObjects,
-      engineGlob: `${cfg.PF_FRAMEWORK_ENGINE_PATH}/**`,
     });
     emit({ type: "step", step: "render", status: "done", meta: `${result.files.length} metadata files · v${spec!.spec_version}` });
 

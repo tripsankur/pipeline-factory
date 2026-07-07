@@ -53,12 +53,10 @@ resources:
       name: {{ source }}_workflow
       tags:
         generated_by: {{ tag.generated_by }}
-      trigger:
+      schedule:
+        quartz_cron_expression: {{ schedule | yamlStr }}
+        timezone_id: America/New_York
         pause_status: UNPAUSED
-        periodic:
-          interval: 1
-          unit: DAYS
-      # contract batch_schedule (quartz): {{ schedule }}
       tasks:
 {% if connection %}
         - task_key: ingest
