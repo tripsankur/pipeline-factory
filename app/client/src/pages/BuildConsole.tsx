@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { streamBuild, type BuildEvent } from "../api";
+import { SpecPicker } from "../components/SpecPicker";
 import { Button, Card, Mono } from "../components/ui";
 
 const STEP_DEFS: { id: string; label: string }[] = [
@@ -22,6 +23,11 @@ const initialSteps = (): Record<string, StepState> =>
   Object.fromEntries(STEP_DEFS.map((s) => [s.id, { status: "pending", meta: "" }]));
 
 export default function BuildConsole({ specId }: { specId: string | null }) {
+  // seeded by Fleet/Mapping approval, switchable in place via the picker
+  const [selected, setSelected] = useState<string | null>(specId);
+  useEffect(() => {
+    if (specId) setSelected(specId);
+  }, [specId]);
   const [steps, setSteps] = useState<Record<string, StepState>>(initialSteps);
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
@@ -37,14 +43,14 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
   useEffect(() => () => cancelRef.current?.(), []);
 
   const start = () => {
-    if (!specId || running) return;
+    if (!selected || running) return;
     setSteps(initialSteps());
     setLogs([]);
     setFixes([]);
     setResult(null);
     setRunning(true);
     cancelRef.current = streamBuild(
-      specId,
+      selected,
       (e: BuildEvent) => {
         if (e.type === "step" && e.step) {
           setSteps((s) => ({ ...s, [e.step!]: { status: e.status ?? "pending", meta: e.meta ?? "" } }));
@@ -65,14 +71,31 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
     );
   };
 
-  if (!specId) {
-    return <p style={{ color: "var(--pf-tsec)" }}>Approve a spec, then run its build here.</p>;
+  const picker = (
+    <SpecPicker
+      selected={selected}
+      onSelect={setSelected}
+      hint="pick a spec to build — only approved / pr_open specs can run"
+      emphasize={["approved", "pr_open"]}
+    />
+  );
+
+  if (!selected) {
+    return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{picker}</div>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {!running && (
+        <details>
+          <summary style={{ cursor: "pointer", fontSize: "var(--fs-small)", color: "var(--pf-acc)" }}>
+            Switch spec
+          </summary>
+          <div style={{ marginTop: 8 }}>{picker}</div>
+        </details>
+      )}
       <Card style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
-        <Mono>{specId}</Mono>
+        <Mono>{selected}</Mono>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
           {result?.pr && (
             <span style={{ fontSize: 10.8, color: "var(--pf-ok)" }}>

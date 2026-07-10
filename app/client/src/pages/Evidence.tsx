@@ -1,17 +1,32 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card, Mono, StatusPill } from "../components/ui";
+import { SpecPicker } from "../components/SpecPicker";
 import Artifacts from "./Artifacts";
 
 export default function Evidence({ specId }: { specId: string | null }) {
+  const [selected, setSelected] = useState<string | null>(specId);
+  useEffect(() => {
+    if (specId) setSelected(specId);
+  }, [specId]);
   const q = useQuery({
-    queryKey: ["evidence", specId],
-    queryFn: () => api.evidence(specId!),
-    enabled: specId !== null,
+    queryKey: ["evidence", selected],
+    queryFn: () => api.evidence(selected!),
+    enabled: selected !== null,
   });
 
-  if (!specId) return <p style={{ color: "var(--pf-tsec)" }}>Pick a spec from the Fleet dashboard.</p>;
-  if (q.isLoading) return <p style={{ color: "var(--pf-tsec)" }}>Loading evidence…</p>;
+  const picker = (
+    <SpecPicker selected={selected} onSelect={setSelected} hint="pick a spec to inspect its build & recon evidence" />
+  );
+  if (!selected) return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{picker}</div>;
+  if (q.isLoading)
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {picker}
+        <p style={{ color: "var(--pf-tsec)" }}>Loading evidence…</p>
+      </div>
+    );
   if (q.isError) return <p style={{ color: "var(--pf-bad)" }}>{String(q.error)}</p>;
 
   const d = q.data!;
@@ -28,6 +43,10 @@ export default function Evidence({ specId }: { specId: string | null }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <details>
+        <summary style={{ cursor: "pointer", fontSize: "var(--fs-small)", color: "var(--pf-acc)" }}>Switch spec</summary>
+        <div style={{ marginTop: 8 }}>{picker}</div>
+      </details>
       {/* header */}
       <Card style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
         <Mono>{d.spec.spec_id}</Mono>
@@ -164,11 +183,11 @@ export default function Evidence({ specId }: { specId: string | null }) {
       {/* rendered artifacts */}
       <div>
         <h3 style={{ fontSize: 12.8, margin: "6px 0 10px" }}>Rendered artifacts</h3>
-        <Artifacts specId={specId} />
+        <Artifacts specId={selected} />
       </div>
 
       {/* prompt transparency: the actual LLM traffic behind this spec */}
-      <LlmCalls specId={specId} />
+      <LlmCalls specId={selected} />
     </div>
   );
 }
