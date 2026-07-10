@@ -13,7 +13,7 @@ export function resolveTemplatesDir(): string {
     join(here, "..", "..", "..", "..", "templates"), // app/server/src/routes -> repo/templates
     join(here, "..", "..", "..", "templates"),
   ];
-  const found = candidates.find((c) => existsSync(join(c, "silver_stitch.sql.njk")));
+  const found = candidates.find((c) => existsSync(join(c, "dataflow.yml.njk")));
   if (!found) throw new Error(`templates dir not found; tried: ${candidates.join(", ")}`);
   return found;
 }
