@@ -12,10 +12,18 @@ export default function Mapping({
   onApproved: (specId: string) => void;
 }) {
   const qc = useQueryClient();
+  // the page owns its selection: seeded by the prop (Fleet/Intake push one in),
+  // but always switchable from the full spec list below
+  const [selected, setSelected] = useState<string | null>(specId);
+  useEffect(() => {
+    if (specId) setSelected(specId);
+  }, [specId]);
+
+  const list = useQuery({ queryKey: ["specs"], queryFn: api.listSpecs, refetchInterval: 30_000 });
   const specQuery = useQuery({
-    queryKey: ["spec", specId],
-    queryFn: () => api.getSpec(specId!),
-    enabled: specId !== null,
+    queryKey: ["spec", selected],
+    queryFn: () => api.getSpec(selected!),
+    enabled: selected !== null,
   });
 
   const [draft, setDraft] = useState<Spec | null>(null);
@@ -39,11 +47,81 @@ export default function Mapping({
     onError: (e) => toast(String(e).slice(0, 160), "bad"),
   });
 
-  if (!specId) {
-    return <p style={{ color: "var(--pf-tsec)" }}>Select a spec from the Fleet dashboard, or generate one via Contract intake.</p>;
+  const specList = (
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--pf-bd)", display: "flex", gap: 8, alignItems: "baseline" }}>
+        <strong style={{ fontSize: "var(--fs-h3)" }}>Specs</strong>
+        <span style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+          pick one to review — “generated” specs await approval
+        </span>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
+        <tbody>
+          {(list.data?.specs ?? []).map((s) => (
+            <tr
+              key={s.spec_id}
+              className="pf-row"
+              onClick={() => setSelected(s.spec_id)}
+              style={{
+                cursor: "pointer",
+                background: s.spec_id === selected ? "var(--pf-acc-soft)" : undefined,
+              }}
+            >
+              <td style={{ padding: "7px 14px", fontWeight: 600 }}>{s.entity}</td>
+              <td style={{ padding: "7px 14px" }}>
+                <Mono>{s.spec_id}</Mono>
+                <span style={{ color: "var(--pf-tmut)", marginLeft: 6 }}>v{s.current_version}</span>
+              </td>
+              <td style={{ padding: "7px 14px" }}>
+                <span
+                  style={{
+                    color:
+                      s.status === "generated"
+                        ? "var(--pf-warn)"
+                        : s.status === "needs_human"
+                          ? "var(--pf-bad)"
+                          : "var(--pf-tsec)",
+                  }}
+                >
+                  {s.status}
+                </span>
+              </td>
+              <td style={{ padding: "7px 14px", color: "var(--pf-tmut)", fontSize: "var(--fs-micro)" }}>
+                {s.updated_at?.slice(0, 19)}
+              </td>
+            </tr>
+          ))}
+          {list.data && list.data.specs.length === 0 && (
+            <tr>
+              <td style={{ padding: 14, color: "var(--pf-tmut)" }}>
+                No specs yet — generate one via Contract intake.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </Card>
+  );
+
+  if (!selected) {
+    return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{specList}</div>;
   }
-  if (specQuery.isLoading || !draft) return <p style={{ color: "var(--pf-tsec)" }}>Loading spec…</p>;
-  if (specQuery.isError) return <p style={{ color: "var(--pf-bad)" }}>{String(specQuery.error)}</p>;
+  if (specQuery.isLoading || !draft) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {specList}
+        <p style={{ color: "var(--pf-tsec)" }}>Loading spec…</p>
+      </div>
+    );
+  }
+  if (specQuery.isError) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {specList}
+        <p style={{ color: "var(--pf-bad)" }}>{String(specQuery.error)}</p>
+      </div>
+    );
+  }
 
   const lowConfidence = draft.columns.filter((c) => c.confidence < 0.8).length;
   const tiers = {
@@ -67,6 +145,12 @@ export default function Mapping({
 
   return (
     <div style={{ paddingBottom: 90 }}>
+      <details style={{ marginBottom: 12 }}>
+        <summary style={{ cursor: "pointer", fontSize: "var(--fs-small)", color: "var(--pf-acc)" }}>
+          Switch spec ({list.data?.specs.length ?? 0} total)
+        </summary>
+        <div style={{ marginTop: 8 }}>{specList}</div>
+      </details>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 14.5 }}>
           <Mono>{draft.entity}</Mono> · v{draft.spec_version}
