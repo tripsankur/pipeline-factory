@@ -164,9 +164,28 @@ export async function ensureWorkflow(
   };
 
   const tasks: Record<string, unknown>[] = [];
+  // schema-drift gate (audit gap #1): halts the chain on missing contract
+  // columns when batch_config.drift_policy=fail; warn-only otherwise
   if (ingestionPipelineId) {
     tasks.push({
+      task_key: "drift_check",
+      ...retry,
+      spark_python_task: {
+        python_file: `${cfg.PF_FRAMEWORK_ENGINE_PATH}/drift_check.py`,
+        parameters: [
+          "--source", input.source,
+          "--spec-table", specTable,
+          "--run-id", "{{job.run_id}}",
+          "--secret-scope", cfg.PF_SECRET_SCOPE,
+          "--catalog", cfg.PF_CATALOG,
+          "--schema", cfg.PF_SCHEMA,
+        ],
+      },
+      environment_key: "default",
+    });
+    tasks.push({
       task_key: "ingest",
+      depends_on: [{ task_key: "drift_check" }],
       pipeline_task: { pipeline_id: ingestionPipelineId, full_refresh: false },
     });
   }

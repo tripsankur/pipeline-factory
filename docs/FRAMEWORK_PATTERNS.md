@@ -241,20 +241,33 @@ sub-batch latency, P1 on the contract cron is the right answer.
 ## 8. Audited gaps → prioritized roadmap (design review 2026-07-14)
 
 Independent design audit scored the framework 9/14 covered, 5 partial — no
-architectural rework required; all gaps land inside the existing ADR frame.
+architectural rework required; all gaps landed inside the existing ADR frame
+(engine 1.2.0 + app v3.1, same review cycle):
 
-| Priority | Gap | Planned shape |
-|---|---|---|
-| CRITICAL | Schema-drift detection & policy | workflow drift task: describe vs contract → `batch_config.drift_policy` (pass\|fail\|quarantine) |
-| HIGH | Full refresh / backfill execution | `full_refresh_cron` trigger: reset watermark + pipeline full_refresh=true; date-ranged replay API |
-| HIGH | PII → UC column tags | post spec-upsert: `ALTER TABLE … ALTER COLUMN … SET TAGS` from contract `pii:` flags |
-| HIGH | Decommission UX + audit | Settings decommission button → confirmation → tombstone + `spec_versions` reason row (docs below) |
-| MED | SLA breach surfacing | dashboard: (finished_at − started_at) vs `batch_config.sla_minutes` flag |
-| MED | Lineage API | `/api/lineage/{source}/{entity}` graph from dataflow_spec (+ dbt manifest when integrated) |
-| MED | Orchestrator integration runbook | ORCHESTRATOR_INTEGRATION.md: Airflow/ADF trigger examples + permission matrix |
-| LOW | Quarantine semantics | `{catalog}.quarantine.{source}_{entity}` for expect_or_drop rows; ops disposition flow |
+| Priority | Gap | Shipped shape | Status |
+|---|---|---|---|
+| CRITICAL | Schema-drift detection & policy | `drift_check` workflow task (first task, P1 sources): live describe vs selected columns → `ctl.drift_events`; policy from `batch_config.drift_policy` (warn\|fail\|pass, editable in Settings) | ✅ engine 1.2.0 |
+| HIGH | Full refresh / backfill execution | `POST /api/ops/full-refresh/{source}` (typed confirm): watermark reset + `full_refresh=true` updates on both pipelines; button in Settings | ✅ v3.1 |
+| HIGH | PII → UC column tags | build step after recon: `ALTER TABLE … ALTER COLUMN … SET TAGS ('class'='pii')` for contract `pii:` columns | ✅ v3.1 |
+| HIGH | Decommission UX + audit | Evidence-page button → typed entity confirmation → `POST /api/specs/{id}/decommission` → tombstone + feature_events audit (flow below) | ✅ v3.1 |
+| MED | SLA breach surfacing | `/api/recon/ingestion` computes (finished − started) vs `batch_config.sla_minutes`; BREACH flag in dashboard | ✅ v3.1 |
+| MED | Lineage API | `GET /api/lineage/{source}/{entity}`: source→ingest→bronze→etl→silver→workflow graph + columns + last run | ✅ v3.1 (dbt manifest join later) |
+| MED | Orchestrator integration runbook | [`ORCHESTRATOR_INTEGRATION.md`](./ORCHESTRATOR_INTEGRATION.md): Airflow/ADF run-now examples + permission matrix | ✅ docs |
+| LOW | Quarantine semantics | documented below; engine implementation deferred until a contract demands `expect_or_drop` row preservation | 📋 designed |
 
-**Decommission flow (documented now):** operator confirms in the app → the spec's
-dataflow row is tombstoned (`is_active=false`, never deleted) → next workflow
-update drops the managed datasets deliberately → `spec_versions` records the
-reason. The drop-guard blocks any *implicit* path to the same outcome.
+**Decommission flow:** operator opens the spec's Evidence page → Decommission…
+→ types the exact entity name → the spec's dataflow row is tombstoned
+(`is_active=false`, never deleted) → next pipeline update drops the managed
+datasets deliberately → `feature_events` records who/when. The drop-guard
+blocks any *implicit* path to the same outcome.
+
+**Quarantine semantics (designed, not yet built):** today `expect_or_drop`
+rows are silently excluded from silver — counts of dropped rows surface in DQ
+evidence, the rows themselves do not survive. When a contract needs disposition
+workflow (re-key, patch, replay), the engine vNext will mirror dropped rows to
+`{catalog}.quarantine.{source}_{entity}` (same schema + `_dq_violations
+ARRAY<STRING>` + `_run_id`), driven by
+`dataflow_spec.reader_config_options['quarantine_table']` — a metadata flag,
+no per-source code, consistent with ADR-008. Disposition: fix at source and
+full-refresh (preferred), or patch-and-replay via a governed MERGE. Quarantine
+tables are TTL'd (30d VACUUM) and never fed forward automatically.

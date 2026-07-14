@@ -429,6 +429,22 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
       outcome = await attempt(assets);
     }
 
+    // PII governance (audit gap #3): tag silver columns flagged in the contract
+    const piiCols = spec.columns.filter((c) => c.pii).map((c) => c.target);
+    if (piiCols.length > 0) {
+      for (const col of piiCols) {
+        try {
+          await dbx.sql(
+            `ALTER TABLE ${spec.target.entity} ALTER COLUMN \`${col.replaceAll("`", "")}\` SET TAGS ('class' = 'pii')`,
+            warehouse,
+          );
+        } catch (err) {
+          log(`▸ pii tag skipped for ${col}: ${String(err).slice(0, 120)}`);
+        }
+      }
+      log(`✓ governance: UC 'class=pii' tags applied to ${piiCols.length} silver column(s)`);
+    }
+
     // ---- PR with evidence (human gate #2 — merge is never automated) ----
     emit({ type: "step", step: "pr", status: "running" });
     const evidence = buildEvidenceMarkdown({

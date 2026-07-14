@@ -223,6 +223,7 @@ export interface IngestionRun {
   started_at: string | null;
   finished_at: string | null;
   detail: string | null;
+  sla_breach: boolean | null;
 }
 
 export interface ReconDiff {

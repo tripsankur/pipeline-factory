@@ -69,7 +69,20 @@ resources:
             client: "2"
       tasks:
 {% if connection %}
+        - task_key: drift_check
+          spark_python_task:
+            python_file: ${var.framework_engine_dir}/drift_check.py
+            parameters:
+              - "--source"
+              - {{ source }}
+              - "--spec-table"
+              - ${var.spec_table}
+              - "--run-id"
+              - "{{ '{{job.run_id}}' }}"
+          environment_key: default
         - task_key: ingest
+          depends_on:
+            - task_key: drift_check
           pipeline_task:
             pipeline_id: ${resources.pipelines.brnz_{{ source }}_ingest.id}
             full_refresh: false

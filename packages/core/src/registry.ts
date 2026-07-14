@@ -185,8 +185,19 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       sla_minutes INT,
       notify_emails ARRAY<STRING>,
       full_refresh_cron STRING,
+      drift_policy STRING,
       updated_at TIMESTAMP NOT NULL,
       updated_by STRING
+    ) ${CDF_PROPS}`,
+
+    `CREATE TABLE IF NOT EXISTS ${t("drift_events")} (
+      source STRING NOT NULL,
+      entity STRING NOT NULL,
+      run_id STRING,
+      kind STRING NOT NULL,
+      column_name STRING NOT NULL,
+      policy STRING,
+      detected_at TIMESTAMP NOT NULL
     ) ${CDF_PROPS}`,
 
     `CREATE TABLE IF NOT EXISTS ${t("job_config")} (

@@ -344,7 +344,15 @@ tables:
             ]}
           />
           <p style={{ marginBottom: 0 }}>
-            <strong>Where dbt fits:</strong> the factory ends at silver; dbt begins there. dbt projects
+            <strong>Where dbt fits</strong>{" "}
+            <button
+              className="pf-btn"
+              style={{ background: "none", border: "none", color: "var(--pf-acc)", cursor: "pointer", fontSize: "var(--fs-micro)", padding: 0 }}
+              onClick={() => api.featureClick("dbt_integration")}
+            >
+              (interested? register demand)
+            </button>
+            : the factory ends at silver; dbt begins there. dbt projects
             declare factory silver tables as <Mono>sources:</Mono> and build gold marts, running as a
             native <Mono>dbt_task</Mono> in the same workflow. dbt never replaces the engine — dbt models
             are code, and per-source artifacts here are metadata by decision (ADR-008).

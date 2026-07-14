@@ -60,7 +60,20 @@ resources:
           spec:
             client: "2"
       tasks:
+        - task_key: drift_check
+          spark_python_task:
+            python_file: ${var.framework_engine_dir}/drift_check.py
+            parameters:
+              - "--source"
+              - aldm
+              - "--spec-table"
+              - ${var.spec_table}
+              - "--run-id"
+              - "{{job.run_id}}"
+          environment_key: default
         - task_key: ingest
+          depends_on:
+            - task_key: drift_check
           pipeline_task:
             pipeline_id: ${resources.pipelines.brnz_aldm_ingest.id}
             full_refresh: false

@@ -299,7 +299,7 @@ function IngestionPanel() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
         <thead>
           <tr style={{ color: "var(--pf-tsec)", textAlign: "left" }}>
-            {["When", "Source / entity", "Trigger", "State", "Bronze", "Silver", "Δ rows"].map((h) => (
+            {["When", "Source / entity", "Trigger", "State", "Bronze", "Silver", "Δ rows", "SLA"].map((h) => (
               <th key={h} style={{ padding: "7px 12px", borderBottom: "1px solid var(--pf-bd)" }}>{h}</th>
             ))}
           </tr>
@@ -321,6 +321,9 @@ function IngestionPanel() {
               <td style={{ padding: "6px 12px" }}>{r.silver_count?.toLocaleString() ?? "—"}</td>
               <td style={{ padding: "6px 12px", color: (r.rows_delta ?? 0) !== 0 ? "var(--pf-tpri)" : "var(--pf-tmut)" }}>
                 {r.rows_delta === null ? "first run" : (r.rows_delta >= 0 ? "+" : "") + r.rows_delta}
+              </td>
+              <td style={{ padding: "6px 12px" }}>
+                {r.sla_breach === null ? <span style={{ color: "var(--pf-tmut)" }}>—</span> : r.sla_breach ? <span style={{ color: "var(--pf-bad)", fontWeight: 600 }}>BREACH</span> : <span style={{ color: "var(--pf-ok)" }}>ok</span>}
               </td>
             </tr>
           ))}

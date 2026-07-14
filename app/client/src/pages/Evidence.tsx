@@ -54,6 +54,24 @@ export default function Evidence({ specId }: { specId: string | null }) {
         <span style={{ color: "var(--pf-tsec)", fontSize: 10.8 }}>
           {d.spec.source.entity} → {d.spec.target.entity}
         </span>
+        <button
+          className="pf-btn"
+          style={{ marginLeft: 8, color: "var(--pf-bad)", background: "none", border: "1px solid var(--pf-bd2)", borderRadius: "var(--rad)", padding: "3px 10px", cursor: "pointer", fontSize: "var(--fs-micro)" }}
+          onClick={() => {
+            const c = window.prompt(
+              `Decommission tombstones '${d.spec.entity}' (dataflow row is_active=false; the engine drops its managed tables on the next update). Type the entity name to confirm:`,
+            );
+            if (c === null) return;
+            void fetch(`/api/specs/${d.spec.spec_id}/decommission`, {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm_entity: c }),
+            }).then(async (res) => {
+              const j = (await res.json()) as { note?: string; error?: string };
+              window.alert(res.ok ? `Decommissioned. ${j.note ?? ""}` : (j.error ?? "failed"));
+            });
+          }}
+        >
+          Decommission…
+        </button>
         {lastBuild?.pr_url && (
           <span style={{ marginLeft: "auto", fontSize: 10.8 }}>
             {lastBuild.pr_url.startsWith("http") ? (

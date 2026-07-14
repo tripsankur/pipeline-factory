@@ -48,6 +48,11 @@ export const ColumnMappingSchema = z.object({
     .string()
     .nullish()
     .transform((v) => v ?? ""),
+  /** personally identifiable — from the contract; drives UC column tags */
+  pii: z
+    .boolean()
+    .nullish()
+    .transform((v) => v ?? false),
   /** reconciliation behavior for this column */
   compare: CompareSchema.nullish().transform(
     (v) => v ?? { enabled: true, normalize: null, tolerance: null },

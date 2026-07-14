@@ -105,6 +105,7 @@ interface BatchCfg {
   sla_minutes: number | null;
   notify_emails: string[];
   max_retries: number;
+  drift_policy: string;
 }
 
 /** Control plane (ADR-011): schedule / pause / SLA / notifications are
@@ -168,7 +169,7 @@ function BatchConfigPanel() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
           <thead>
             <tr style={{ color: "var(--pf-tsec)", textAlign: "left" }}>
-              {["Source", "Cron (quartz)", "Enabled", "SLA min", "Notify (comma-sep)", ""].map((h) => (
+              {["Source", "Cron (quartz)", "Enabled", "SLA min", "Notify (comma-sep)", "Drift", "", ""].map((h) => (
                 <th key={h} style={{ padding: "7px 12px", borderBottom: "1px solid var(--pf-bd)" }}>{h}</th>
               ))}
             </tr>
@@ -199,8 +200,37 @@ function BatchConfigPanel() {
                       setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], notify_emails: v ? v.split(",").map((s) => s.trim()) : [] } })), 220)}
                   </td>
                   <td style={{ padding: "6px 12px" }}>
+                    <select
+                      value={(d as { drift_policy?: string }).drift_policy ?? b.drift_policy}
+                      onChange={(e) => setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], drift_policy: e.target.value } as never }))}
+                      style={{ padding: "4px 6px", borderRadius: "var(--rad)", border: "1px solid var(--pf-bd2)", background: "var(--pf-input-bg)", color: "var(--pf-tpri)", fontSize: "var(--fs-mono)" }}
+                    >
+                      {["warn", "fail", "pass"].map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
                     <button className="pf-btn" onClick={() => void save(b.source)} disabled={busy === b.source || !drafts[b.source] || Object.keys(drafts[b.source] ?? {}).length === 0}>
                       {busy === b.source ? "Saving…" : "Save"}
+                    </button>
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
+                    <button
+                      className="pf-btn"
+                      style={{ color: "var(--pf-warn)" }}
+                      onClick={() => {
+                        const c = window.prompt(`Full refresh resets watermarks and re-ingests EVERYTHING for '${b.source}'. Type the source name to confirm:`);
+                        if (c !== b.source) return;
+                        setBusy(b.source);
+                        void fetch(`/api/ops/full-refresh/${encodeURIComponent(b.source)}`, {
+                          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: c }),
+                        }).then(async (res) => {
+                          const j = (await res.json()) as { note?: string; error?: string };
+                          setMsg(res.ok ? `${b.source}: full refresh started — ${j.note ?? ""}` : (j.error ?? "failed"));
+                        }).finally(() => setBusy(null));
+                      }}
+                      disabled={busy === b.source}
+                    >
+                      Full refresh
                     </button>
                   </td>
                 </tr>

@@ -22,6 +22,7 @@ describe("registryDdl", () => {
       "watermarks",
       "batch_config",
       "job_config",
+      "drift_events",
     ];
     for (const t of tables) {
       expect(ddl.some((s) => s.includes(`\`${t}\``))).toBe(true);

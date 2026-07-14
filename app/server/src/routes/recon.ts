@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { fq } from "@pf/core";
+import { batchConfigSelectSql, fq, parseBatchConfigRow } from "@pf/core";
 import type { DbxClient } from "@pf/dbx";
 import type { AppConfig } from "../config.js";
 import type { PgStore } from "../lib/store/pg-store.js";
@@ -153,6 +153,23 @@ export function registerReconRoutes(
     if (!q.success) return reply.code(400).send({ error: "invalid query", detail: q.error.issues });
     const { limit, entity } = q.data;
 
+    // SLA flags (batch_config.sla_minutes) — one warehouse read, applied to all rows
+    const slaBySource = new Map<string, number>();
+    try {
+      const bc = await dbx.sqlRows(batchConfigSelectSql(cfg.registry), cfg.DATABRICKS_WAREHOUSE_ID);
+      for (const row of bc) {
+        const parsed = parseBatchConfigRow(row);
+        if (parsed.sla_minutes) slaBySource.set(parsed.source, parsed.sla_minutes);
+      }
+    } catch {
+      // SLA flags degrade silently
+    }
+    const slaBreach = (source: string | null, started: string | null, finished: string | null): boolean | null => {
+      const sla = source ? slaBySource.get(source) : undefined;
+      if (!sla || !started || !finished) return null;
+      const mins = (Date.parse(finished) - Date.parse(started)) / 60_000;
+      return Number.isFinite(mins) ? mins > sla : null;
+    };
     const mapIng = (x: Record<string, unknown>) => ({
       run_id: String(x.run_id ?? ""),
       source: (x.source as string | null) ?? null,
@@ -165,6 +182,11 @@ export function registerReconRoutes(
       started_at: (x.started_at as string | null) ?? null,
       finished_at: (x.finished_at as string | null) ?? null,
       detail: (x.detail as string | null) ?? null,
+      sla_breach: slaBreach(
+        (x.source as string | null) ?? null,
+        (x.started_at as string | null) ?? null,
+        (x.finished_at as string | null) ?? null,
+      ),
     });
 
     if (pg) {
