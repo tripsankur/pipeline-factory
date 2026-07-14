@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
-// mermaid is heavy (~1 MB) — dynamic import keeps it out of the main bundle;
-// it only loads when a diagram scrolls into the Docs page.
-let mermaidModule: Promise<typeof import("mermaid")> | null = null;
+// mermaid is ~3 MB — bundling it breaks the 10 MB Databricks Apps artifact
+// limit, so the browser pulls a pinned build from the CDN only when the Docs
+// page actually renders a diagram.
+const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+interface MermaidApi {
+  default: {
+    initialize(config: Record<string, unknown>): void;
+    render(id: string, code: string): Promise<{ svg: string }>;
+  };
+}
+let mermaidModule: Promise<MermaidApi> | null = null;
 function loadMermaid() {
-  mermaidModule ??= import("mermaid").then((m) => {
+  mermaidModule ??= (import(/* @vite-ignore */ MERMAID_CDN) as Promise<MermaidApi>).then((m) => {
     m.default.initialize({
       startOnLoad: false,
       theme: "neutral",
