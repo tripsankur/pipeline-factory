@@ -11,6 +11,7 @@ import {
   evidencePath,
   fq,
   specSourceObject,
+  withConnectorRequiredColumns,
   SpecDeltaSchema,
   type RenderOptions,
   type RenderResult,
@@ -214,7 +215,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
           destination_schema: ds ?? "bronze",
           destination_table: dt ?? (r.entity as string),
           primary_keys: keys.map((k) => k.source),
-          include_columns: cols,
+          include_columns: withConnectorRequiredColumns(spec!.source.system, cols),
           scd_type: "SCD_TYPE_1",
         });
       } catch {

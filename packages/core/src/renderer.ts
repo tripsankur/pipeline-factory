@@ -61,6 +61,16 @@ function threePartToParts(entity: string): { catalog: string; schema: string; ta
   return { catalog: "workspace", schema: "bronze", table: parts[parts.length - 1] ?? entity };
 }
 
+/** Columns the managed Salesforce connector refuses to run without: its
+ *  incremental cursor and soft-delete marker (CANNOT_FILTER_OUT_REQUIRED_COLUMN).
+ *  They land in bronze but never flow to silver unless the contract selects them. */
+export const SFDC_REQUIRED_COLUMNS = ["SystemModstamp", "IsDeleted"];
+
+export function withConnectorRequiredColumns(system: string, cols: string[]): string[] {
+  if (system !== "sfdc") return cols;
+  return [...cols, ...SFDC_REQUIRED_COLUMNS.filter((c) => !cols.includes(c))];
+}
+
 /** Default source-object descriptor for a lone spec. */
 export function specSourceObject(spec: Spec): SourceObject {
   const dest = threePartToParts(spec.source.entity);
@@ -71,7 +81,10 @@ export function specSourceObject(spec: Spec): SourceObject {
     destination_schema: dest.schema,
     destination_table: dest.table,
     primary_keys: spec.crosswalk.keys.map((k) => k.source),
-    include_columns: spec.columns.map((c) => c.name),
+    include_columns: withConnectorRequiredColumns(
+      spec.source.system,
+      spec.columns.map((c) => c.name),
+    ),
     scd_type: "SCD_TYPE_1",
   };
 }
