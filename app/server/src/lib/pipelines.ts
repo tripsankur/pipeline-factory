@@ -165,8 +165,11 @@ export async function ensureWorkflow(
 
   const tasks: Record<string, unknown>[] = [];
   // schema-drift gate (audit gap #1): halts the chain on missing contract
-  // columns when batch_config.drift_policy=fail; warn-only otherwise
-  if (ingestionPipelineId) {
+  // columns when batch_config.drift_policy=fail; warn-only otherwise.
+  // Attached for P1 (managed connection) AND describe-capable sources like
+  // sfdc (secret-scope creds) — the engine degrades to a warning without creds.
+  const hasDriftCheck = ingestionPipelineId !== null || input.spec.source.system === "sfdc";
+  if (hasDriftCheck) {
     tasks.push({
       task_key: "drift_check",
       ...retry,
@@ -183,6 +186,8 @@ export async function ensureWorkflow(
       },
       environment_key: "default",
     });
+  }
+  if (ingestionPipelineId) {
     tasks.push({
       task_key: "ingest",
       depends_on: [{ task_key: "drift_check" }],
@@ -191,7 +196,12 @@ export async function ensureWorkflow(
   }
   tasks.push({
     task_key: "etl",
-    ...(ingestionPipelineId ? { depends_on: [{ task_key: "ingest" }] } : {}),
+    // the drift gate must halt the chain even when bronze is engine-owned
+    ...(ingestionPipelineId
+      ? { depends_on: [{ task_key: "ingest" }] }
+      : hasDriftCheck
+        ? { depends_on: [{ task_key: "drift_check" }] }
+        : {}),
     pipeline_task: { pipeline_id: etlPipelineId, full_refresh: false },
   });
   // observability plane (ADR-011): every run — cron or build — logs itself,
