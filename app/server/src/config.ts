@@ -20,7 +20,6 @@ const EnvSchema = z.object({
     .string()
     .default("/Workspace/Users/ankurtripathi.cs@gmail.com/.bundle/ingestion-framework/dev/files/engine"),
   /** framework recon job name suffix (resolved to a job id at first use) */
-  PF_FRAMEWORK_RECON_JOB_NAME: z.string().default("pf-framework-recon"),
   /** engine version floor written into every dataflow_spec row */
   PF_FRAMEWORK_MIN_VERSION: z.string().default("1.0.0"),
   /**

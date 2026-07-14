@@ -60,7 +60,7 @@ would implicitly drop a managed dataset fails the drop-guard instead.
 
 render → branch (metadata commit) → spec_upsert (MERGE dataflow_spec) →
 provision (3 assets, connection gate, drop-guard) → workflow_run → dq (pipeline
-event log, latest update only) → recon (pf-framework-recon job) → PR with
+event log, latest update only) → recon (workflow recon task, ADR-011) → PR with
 EVIDENCE.md. Failures feed the bounded fix loop: LLM emits a spec DELTA only
 (max `MAX_FIX_ITERATIONS`, then `needs_human`).
 

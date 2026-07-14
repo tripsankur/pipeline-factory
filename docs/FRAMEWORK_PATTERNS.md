@@ -104,16 +104,15 @@ self-schedule; the app never runs on a clock.
   schedule: quartz cron from the contract's ingestion.batch_schedule (America/New_York)
   task ingest   → pipeline_task: brnz_{source}_ingest      (P1/P4 sources only)
   task etl      → pipeline_task: slvr_{source}_etl          (depends_on: ingest)
-  [task recon]  → pf-framework-recon                        (build-time; see below)
+  [task recon]  → recon_job.py workflow task                 (every run, ADR-011)
 ```
 
 - **Batch sources** (`snapshot` / `incremental` modes): triggered pipelines +
   cron workflow. **CDC sources**: continuous ingestion, nrt group (P4).
-- **Build-time vs scheduled runs**: a factory build runs the workflow *and* the
-  recon job and gates the PR on thresholds. Scheduled (cron) runs are pure
-  platform — no app, no tokens, no LLM. Recon on schedule is optional: add the
-  recon task to the workflow when the source demands continuous parity evidence,
-  otherwise recon rides builds.
+- **Build-time vs scheduled runs**: identical task graph (ADR-011) — every run
+  logs `ctl.ingestion_runs` and reconciles, keyed by the workflow run id; builds
+  additionally gate the PR on recon thresholds. Scheduled (cron) runs are pure
+  platform — no app, no tokens, no LLM.
 - **Idempotent provisioning**: the app finds-by-name and creates/updates —
   rerunning a build never duplicates assets. Everything tagged
   `generated_by=pipeline_factory`.

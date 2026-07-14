@@ -17,8 +17,8 @@ import type { AppConfig } from "../config.js";
  * Lakeflow assets, idempotent by name —
  *   brnz_{source}_ingest   Lakeflow Connect managed ingestion pipeline (SaaS sources)
  *   slvr_{source}_etl      SDP declarative pipeline running the framework engine
- *   {source}_workflow      Lakeflow Job: pipeline_task(ingest) -> pipeline_task(etl)
- * Recon runs as a separate framework job triggered by the build executor.
+ *   {source}_workflow      Lakeflow Job: drift_check -> ingest -> etl -> log_run -> recon -> sync_N
+ * Recon and drift run as tasks inside the workflow (ADR-011) — no standalone jobs.
  */
 
 export interface ProvisionResult {
@@ -304,13 +304,6 @@ export async function assertNoImplicitDrops(
         `running now would DROP their managed tables. Decommission explicitly (tombstone) or include them.`,
     );
   }
-}
-
-export async function findReconJobId(dbx: DbxClient, jobName: string): Promise<number | null> {
-  // dev-mode bundles prefix job names ("[dev user] pf-framework-recon") — match by suffix
-  const r = await dbx.jobsList();
-  const hit = (r.jobs ?? []).find((j) => j.settings?.name?.endsWith(jobName));
-  return hit?.job_id ?? null;
 }
 
 export async function ensureConnectionExists(dbx: DbxClient, connectionName: string): Promise<boolean> {

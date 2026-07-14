@@ -116,7 +116,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
     } catch (err) {
       return reply.code(502).send({
         error: `schema discovery failed: ${String(err).slice(0, 300)}`,
-        fallback: "run the pf-framework-sfdc-describe job manually if secret-scope access is blocked",
+        fallback: "verify secret-scope credentials (scripts/demo/sf_auth.py --check) and retry",
       });
     }
   });

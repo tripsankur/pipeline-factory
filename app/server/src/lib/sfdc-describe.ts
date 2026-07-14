@@ -6,7 +6,7 @@ import type { DbxClient } from "@pf/dbx";
  * Credentials come from the Databricks secret scope the connect wizard wrote
  * (sfdc_{conn}_client_id / _client_secret / _refresh_token / _instance_url /
  * _login_host). ~2s interactive vs minutes for a job-based describe; the
- * framework's pf-framework-sfdc-describe job remains the fallback.
+ * credentials come from the secret scope; there is no job-based fallback.
  */
 
 export interface DiscoveredField {
