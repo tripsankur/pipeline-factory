@@ -67,6 +67,7 @@ const TOC = [
   ["build", "Build pipeline & fix loop"],
   ["llm", "How the LLM is prompted"],
   ["architecture", "v2 architecture (framework + metadata)"],
+  ["patterns", "Framework patterns (bronze, NRT, dbt)"],
   ["features", "Features & roadmap"],
   ["trouble", "Troubleshooting"],
 ] as const;
@@ -295,6 +296,49 @@ tables:
             that vanish from its graph, so decommissioning requires an explicit human confirmation. App
             state lives in Lakebase Postgres; recon results sync back as read-only tables for the
             Reconciliation dashboard (ADR-007).
+          </p>
+        </Section>
+
+        <Section id="patterns" title="Framework patterns — the defined shapes for ingestion">
+          <p>
+            Every source maps to exactly <strong>one bronze pattern</strong>; orchestration, lifecycle and
+            evidence are identical across all of them. New source = pick the row, fill the metadata.
+            Full catalog: <Mono>docs/FRAMEWORK_PATTERNS.md</Mono> in the repo.
+          </p>
+          <T
+            head={["Pattern", "Source type", "Bronze owner", "Latency"]}
+            rows={[
+              ["P1 Managed ingestion (Lakeflow Connect) — Salesforce uses this", "SaaS with a managed connector", "ingestion pipeline (cursoring, SCD, schema evolution — zero code)", "batch"],
+              ["P2 Auto Loader", "file drops in cloud storage / volumes", "framework engine (streaming table)", "batch or ~minute (continuous)"],
+              ["P3 Pre-landed Delta", "data another team already lands", "consume-only (or engine snapshot)", "batch"],
+              ["P4 CDC gateway (planned)", "databases (SQL Server GA; Oracle/Postgres preview)", "gateway + continuous ingestion pipeline", "minutes"],
+              ["P6 Bus streaming (planned)", "Kafka / Kinesis / Event Hubs", "engine, continuous pipeline", "seconds"],
+              ["P7 Zerobus push (planned)", "apps you control — gRPC straight into Delta, no bus", "producer + Zerobus", "seconds"],
+              ["P5 Zero-copy federation", "Salesforce Data Cloud orgs", "none — foreign catalog; complement, NEVER bronze", "query-time"],
+            ]}
+          />
+          <p>
+            <strong>Orchestration:</strong> one Lakeflow workflow per source is the only scheduler —
+            cron from the contract&apos;s <Mono>batch_schedule</Mono>, tasks{" "}
+            <Mono>ingest → etl</Mono> (+ optional recon). NRT sources flip the model: the pipeline runs
+            continuous and the cron disappears. <strong>No external orchestrator</strong> (Airflow etc.) —
+            everything orchestrated is Databricks work and the schedule ships inside the promoted bundle;
+            if an enterprise ever mandates one, it triggers the workflow (run-now) and nothing generated changes.
+          </p>
+          <T
+            head={["Generated artifact (per build)", "Standard enforced"]}
+            rows={[
+              [<Mono key="a1">metadata/{"{source}"}/{"{entity}"}/dataflow.yml</Mono>, "spec-tagged header; byte-stable; golden-file tested"],
+              [<Mono key="a2">resources/{"{source}"}.pipeline.yml</Mono>, "thin DAB — ingestion + ETL + cron workflow; engine path stays a variable for any target"],
+              [<Mono key="a3">factory.manifest.yml</Mono>, "manifest v2, sha256 per artifact — CI re-verifies (tamper gate)"],
+              [<Mono key="a4">metadata/…/EVIDENCE.md</Mono>, "mapping + confidences + recon rates + fix timeline (same text as PR body)"],
+            ]}
+          />
+          <p style={{ marginBottom: 0 }}>
+            <strong>Where dbt fits:</strong> the factory ends at silver; dbt begins there. dbt projects
+            declare factory silver tables as <Mono>sources:</Mono> and build gold marts, running as a
+            native <Mono>dbt_task</Mono> in the same workflow. dbt never replaces the engine — dbt models
+            are code, and per-source artifacts here are metadata by decision (ADR-008).
           </p>
         </Section>
 

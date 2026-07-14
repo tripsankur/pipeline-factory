@@ -72,6 +72,20 @@ export const FEATURES: readonly FeatureDef[] = [
     available: false,
   },
   {
+    id: "dbt_integration",
+    title: "dbt integration (silver → gold)",
+    promise: "dbt projects consume factory silver as sources; dbt_task rides the same source workflow.",
+    roadmap: "later",
+    available: false,
+  },
+  {
+    id: "zerobus_nrt",
+    title: "Zerobus NRT push (P7)",
+    promise: "Producers push events straight into bronze Delta via gRPC — near-real-time without a message bus.",
+    roadmap: "later",
+    available: false,
+  },
+  {
     id: "comparison_editor",
     title: "Comparison-spec editor",
     promise: "Per-attribute normalization and tolerance editing for reconciliation.",

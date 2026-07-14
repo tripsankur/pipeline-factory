@@ -212,3 +212,26 @@ sub-batch latency, P1 on the contract cron is the right answer.
 - Deleting dataflow rows to remove a dataset (SDP drops the managed table —
   ADR-010 tombstones instead).
 - Federation as bronze (see P5).
+
+---
+
+## 7. Where dbt fits (and where it doesn't)
+
+**Boundary: the factory ends at silver; dbt begins there.**
+
+| Layer | Owner | Why |
+|---|---|---|
+| source → bronze | Lakeflow Connect / engine (P1–P7) | ingestion is metadata-driven, zero-code |
+| bronze → silver | framework SDP engine | machine-generated conformance from the contract, recon-evidenced, fix-loop-repairable — not analyst SQL |
+| silver → gold (marts, metrics) | **dbt** (if the org uses it) — or SDP gold pipelines | business logic is human-authored, version-controlled, dbt-tested; exactly dbt's sweet spot |
+
+- **Integration shape**: dbt projects declare our silver tables as `sources:`;
+  the dbt job runs as a native **`dbt_task`** inside a Lakeflow workflow (dbt-databricks
+  adapter on a SQL warehouse) — same orchestration standard, no Airflow.
+- **What dbt never does here**: replace the engine. dbt models are *code*; the
+  factory's per-source artifacts are metadata (ADR-008). Generating dbt models
+  from specs would resurrect the code-drift problem the framework exists to kill.
+- **What the factory gives dbt**: stable, tagged, contract-traceable silver
+  inputs (`pf.dataflow_id` on every table) plus recon evidence that the sources
+  dbt builds on actually match the system of record.
+- Roadmap flag `dbt_integration` tracks demand (feature_events clicks).
