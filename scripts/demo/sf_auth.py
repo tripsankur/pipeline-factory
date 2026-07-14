@@ -14,6 +14,14 @@ Prereqs:
 Usage:
   python sf_auth.py                # browser flow, updates refresh token secret
   python sf_auth.py --check        # just test the current refresh token
+  python sf_auth.py --paste        # no local server: works with ANY callback URL
+                                   # already configured on the Connected App —
+                                   # you paste the full redirected URL back here
+
+redirect_uri_mismatch? The Connected App's Callback URLs don't include the one
+this script sends. Either (a) SF Setup → App Manager → <app> → Edit → add
+`http://localhost:8787/callback` (propagation ~10 min), or (b) rerun with
+`--paste --callback <one of the URLs already configured>`.
 """
 
 import argparse
@@ -80,6 +88,8 @@ def main() -> None:
     p.add_argument("--client-secret", default="")
     p.add_argument("--login-host", default="")
     p.add_argument("--check", action="store_true", help="only verify the stored refresh token")
+    p.add_argument("--paste", action="store_true",
+                   help="skip the local server; paste the redirected URL manually (any callback URL works)")
     args = p.parse_args()
 
     login_host = args.login_host or secret_get("login_host") or "login.salesforce.com"
@@ -106,26 +116,43 @@ def main() -> None:
     )
     code_holder: dict = {}
 
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
-            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            code_holder["code"] = (q.get("code") or [""])[0]
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Pipeline Factory: auth complete, return to the terminal.")
+    if args.paste:
+        # no server — user completes consent and pastes the redirected URL back;
+        # works with whatever callback the Connected App already has configured
+        print("open this URL, complete the Salesforce login/consent, then copy the")
+        print("FULL URL of the page you land on (it contains ?code=...):\n")
+        print(auth_url + "\n")
+        webbrowser.open(auth_url)
+        landed = input("paste the redirected URL here: ").strip()
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(landed).query)
+        code_holder["code"] = urllib.parse.unquote((q.get("code") or [""])[0])
+        if not code_holder["code"]:
+            print("no ?code= found in that URL — check for an error param instead")
+            sys.exit(1)
+    else:
 
-        def log_message(self, *_):
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                code_holder["code"] = (q.get("code") or [""])[0]
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Pipeline Factory: auth complete, return to the terminal.")
+
+            def log_message(self, *_):
+                pass
+
+        port = int(urllib.parse.urlparse(args.callback).port or 80)
+        srv = http.server.HTTPServer(("localhost", port), Handler)
+        threading.Thread(target=srv.handle_request, daemon=True).start()
+        print("opening browser for Salesforce consent…")
+        webbrowser.open(auth_url)
+        print(f"(if no browser: open this URL manually)\n{auth_url}\n")
+        print("if Salesforce shows redirect_uri_mismatch: add the callback to the")
+        print("Connected App (Setup → App Manager) or rerun with --paste --callback <configured-url>")
+        while "code" not in code_holder:
             pass
-
-    port = int(urllib.parse.urlparse(args.callback).port or 80)
-    srv = http.server.HTTPServer(("localhost", port), Handler)
-    threading.Thread(target=srv.handle_request, daemon=True).start()
-    print("opening browser for Salesforce consent…")
-    webbrowser.open(auth_url)
-    print(f"(if no browser: open this URL manually)\n{auth_url}\n")
-    while "code" not in code_holder:
-        pass
-    srv.server_close()
+        srv.server_close()
 
     # 2. exchange code → tokens
     tok = token_request(login_host, {
