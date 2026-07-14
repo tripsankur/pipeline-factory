@@ -36,14 +36,16 @@ export function registerOpsRoutes(
       return reply.code(400).send({ error: `confirm must be exactly 'reset ${source}'` });
     }
     const wh = cfg.DATABRICKS_WAREHOUSE_ID;
+    const all = source === "all";
     const deleted: Record<string, unknown> = { jobs: [], pipelines: [], tables: [], specs: [] };
 
     // capture target tables + spec ids BEFORE deleting the metadata that names them
     const rows = await dbx.sqlRows(
-      `SELECT dataflow_id, target_details FROM ${fq(cfg.registry, "dataflow_spec")}
-       WHERE dataflow_group = ${lit(source)}`,
+      `SELECT dataflow_id, dataflow_group, target_details FROM ${fq(cfg.registry, "dataflow_spec")}
+       ${all ? "" : `WHERE dataflow_group = ${lit(source)}`}`,
       wh,
     );
+    const sources = all ? [...new Set(rows.map((r) => String(r.dataflow_group)))] : [source];
     const specIds = rows.map((r) => String(r.dataflow_id));
     const tables = new Set<string>();
     for (const r of rows) {
@@ -55,20 +57,22 @@ export function registerOpsRoutes(
       }
     }
 
-    // 1. workflow job
-    const jr = await dbx.jobsList(`${source}_workflow`);
-    for (const j of jr.jobs ?? []) {
-      if (j.settings?.name === `${source}_workflow`) {
-        await dbx.jobDelete(j.job_id);
-        (deleted.jobs as unknown[]).push(j.job_id);
+    // 1. workflow jobs
+    for (const src of sources) {
+      const jr = await dbx.jobsList(`${src}_workflow`);
+      for (const j of jr.jobs ?? []) {
+        if (j.settings?.name === `${src}_workflow`) {
+          await dbx.jobDelete(j.job_id);
+          (deleted.jobs as unknown[]).push(j.job_id);
+        }
       }
-    }
-    // 2. pipelines (ingest + etl; sync pipelines are shared infra — kept)
-    for (const name of [`brnz_${source}_ingest`, `slvr_${source}_etl`]) {
-      const pr = await dbx.pipelineList(name);
-      for (const p of (pr.statuses ?? []).filter((s) => s.name === name)) {
-        await dbx.pipelineDelete(p.pipeline_id);
-        (deleted.pipelines as unknown[]).push(p.pipeline_id);
+      // 2. pipelines (ingest + etl; sync pipelines are shared infra — kept)
+      for (const name of [`brnz_${src}_ingest`, `slvr_${src}_etl`]) {
+        const pr = await dbx.pipelineList(name);
+        for (const p of (pr.statuses ?? []).filter((s) => s.name === name)) {
+          await dbx.pipelineDelete(p.pipeline_id);
+          (deleted.pipelines as unknown[]).push(p.pipeline_id);
+        }
       }
     }
     // 3. managed tables
@@ -80,9 +84,22 @@ export function registerOpsRoutes(
     const bySource = ["dataflow_spec:dataflow_group", "ingestion_runs:source", "watermarks:source", "drift_events:source", "batch_config:source", "job_config:source"];
     for (const spec of bySource) {
       const [table, col] = spec.split(":") as [string, string];
-      await dbx.sql(`DELETE FROM ${fq(cfg.registry, table)} WHERE ${col} = ${lit(source)}`, wh).catch(() => undefined);
+      await dbx
+        .sql(`DELETE FROM ${fq(cfg.registry, table)} ${all ? "" : `WHERE ${col} = ${lit(source)}`}`, wh)
+        .catch(() => undefined);
     }
-    if (specIds.length > 0) {
+    if (all) {
+      // full wipe: registry state regardless of whether a spec ever built
+      for (const t of ["recon_runs", "recon_entity_result", "recon_record_diff", "spec_registry", "spec_versions", "staged_artifacts", "build_runs", "llm_calls"]) {
+        await dbx.sql(`DELETE FROM ${fq(cfg.registry, t)}`, wh).catch(() => undefined);
+      }
+      if (pg) {
+        for (const t of ["spec_versions", "build_runs", "llm_calls", "spec_registry", "contracts"]) {
+          await pg.query(`DELETE FROM pipeline_factory.${t}`).catch(() => undefined);
+        }
+      }
+      deleted.specs = "all";
+    } else if (specIds.length > 0) {
       const idList = specIds.map(lit).join(", ");
       for (const t of ["recon_runs", "spec_registry", "spec_versions", "staged_artifacts", "build_runs", "llm_calls"]) {
         await dbx.sql(`DELETE FROM ${fq(cfg.registry, t)} WHERE spec_id IN (${idList})`, wh).catch(() => undefined);
@@ -96,7 +113,7 @@ export function registerOpsRoutes(
         .catch(() => undefined);
       // 5. pg registry (the authority the UI reads) — same scope
       if (pg) {
-        for (const t of ["spec_versions", "staged_artifacts", "build_runs", "llm_calls", "spec_registry"]) {
+        for (const t of ["spec_versions", "build_runs", "llm_calls", "spec_registry"]) {
           await pg.query(`DELETE FROM pipeline_factory.${t} WHERE spec_id = ANY($1)`, [specIds]).catch(() => undefined);
         }
       }
