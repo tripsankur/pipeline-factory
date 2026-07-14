@@ -246,7 +246,7 @@ architectural rework required; all gaps landed inside the existing ADR frame
 
 | Priority | Gap | Shipped shape | Status |
 |---|---|---|---|
-| CRITICAL | Schema-drift detection & policy | `drift_check` workflow task (first task, P1 sources): live describe vs selected columns → `ctl.drift_events`; policy from `batch_config.drift_policy` (warn\|fail\|pass, editable in Settings) | ✅ engine 1.2.0 |
+| CRITICAL | Schema-drift detection & policy | `drift_check` workflow task (first task — P1 sources *and* describe-capable ones like sfdc via secret scope): live describe vs selected columns → `ctl.drift_events`; policy from `batch_config.drift_policy` (warn\|fail\|pass, editable in Settings); etl gated on it even when bronze is engine-owned | ✅ engine 1.2.0 |
 | HIGH | Full refresh / backfill execution | `POST /api/ops/full-refresh/{source}` (typed confirm): watermark reset + `full_refresh=true` updates on both pipelines; button in Settings | ✅ v3.1 |
 | HIGH | PII → UC column tags | build step after recon: `ALTER TABLE … ALTER COLUMN … SET TAGS ('class'='pii')` for contract `pii:` columns | ✅ v3.1 |
 | HIGH | Decommission UX + audit | Evidence-page button → typed entity confirmation → `POST /api/specs/{id}/decommission` → tombstone + feature_events audit (flow below) | ✅ v3.1 |
