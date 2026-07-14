@@ -162,7 +162,32 @@ else is consume-only. Silver stitch + DQ is identical across all patterns.
 
 ---
 
-## 5. Pattern anti-patterns (things this framework refuses)
+## 5. NRT patterns — how near-real-time data actually arrives
+
+Batch patterns (P1–P3) poll or get scheduled; NRT flips the model: **the pipeline
+runs continuous and the cron workflow disappears for that source** (flows join
+the `brnz_{source}_nrt` group). Four sanctioned arrival paths:
+
+| Pattern | Arrival mechanism | Latency | Use when |
+|---|---|---|---|
+| **P4 CDC gateway** | Lakeflow Connect gateway tails the DB transaction log → continuous ingestion pipeline | minutes | databases (SQL Server GA; Oracle/Postgres preview). Zero code |
+| **P6 Bus streaming** *(planned)* | Kafka / Kinesis / Event Hubs consumed by `readStream` in a continuous SDP pipeline (engine `source_format: kafka`) | seconds | events already flow through a bus |
+| **P7 Zerobus push** *(planned)* | producers write records straight into Delta via the Zerobus gRPC SDK (schema-validated, ACKed, serverless — GA 2026) | seconds | you control the producer and don't want to operate a bus |
+| **P2-continuous** | Auto Loader file-notification mode in a continuous pipeline | ~minute | continuous file drops |
+
+Engine impact is intentionally small: bronze acquisition changes per pattern;
+silver stitch, DQ, recon, tombstones and evidence are identical. P6/P7 require an
+engine minor version (bump `framework_min_version`).
+
+**Salesforce NRT specifically:** the managed connector is batch-only by design
+(cursor polling — no real-time). True SF NRT = Salesforce Change Data Capture /
+Platform Events via the Pub/Sub API, landed through **P7** (subscriber →
+Zerobus, no bus to run) or **P6** (relay into Kafka). Until a contract demands
+sub-batch latency, P1 on the contract cron is the right answer.
+
+---
+
+## 6. Pattern anti-patterns (things this framework refuses)
 
 - Hand-written per-source pipelines or notebooks (that's the drift machine the
   framework exists to kill — see the Codex findings on PRs #1–#4).
