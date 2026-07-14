@@ -30,8 +30,10 @@ function b64url(buf: Buffer): string {
 
 const SfdcStartBody = z.object({
   name: z.string().min(1).regex(/^[a-z][a-z0-9_]*$/),
-  client_id: z.string().min(1),
-  client_secret: z.string().min(1),
+  // omit both to RECONNECT: the app reuses the client id/secret already in the
+  // secret scope — no re-entering credentials, just the browser consent
+  client_id: z.string().min(1).optional(),
+  client_secret: z.string().min(1).optional(),
   is_sandbox: z.boolean().default(false),
 });
 
@@ -142,16 +144,32 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
    * Salesforce OAuth step 1: app generates the authorize URL (PKCE) pointing
    * back at its own /callback. The user's browser does the consent.
    */
-  app.post("/api/connections/sfdc/start", async (req) => {
+  app.post("/api/connections/sfdc/start", async (req, reply) => {
     const body = SfdcStartBody.parse(req.body);
+    // reconnect path: reuse the Connected App credentials already in the scope
+    let clientId = body.client_id;
+    let clientSecret = body.client_secret;
+    let loginHost = body.is_sandbox ? "test.salesforce.com" : "login.salesforce.com";
+    if (!clientId || !clientSecret) {
+      try {
+        const prefix = `sfdc_${body.name}`;
+        clientId = await dbx.secretGet(cfg.PF_SECRET_SCOPE, `${prefix}_client_id`);
+        clientSecret = await dbx.secretGet(cfg.PF_SECRET_SCOPE, `${prefix}_client_secret`);
+        const storedHost = await dbx.secretGet(cfg.PF_SECRET_SCOPE, `${prefix}_login_host`).catch(() => "");
+        if (storedHost) loginHost = storedHost;
+      } catch {
+        return reply.code(400).send({
+          error: `no stored credentials for '${body.name}' — first-time connect needs client_id + client_secret`,
+        });
+      }
+    }
     const state = b64url(randomBytes(24));
     const verifier = b64url(randomBytes(48));
     const challenge = b64url(createHash("sha256").update(verifier).digest());
-    const loginHost = body.is_sandbox ? "test.salesforce.com" : "login.salesforce.com";
     pending.set(state, {
       name: body.name,
-      clientId: body.client_id,
-      clientSecret: body.client_secret,
+      clientId,
+      clientSecret,
       loginHost,
       isSandbox: body.is_sandbox,
       verifier,
@@ -163,7 +181,7 @@ export function registerConnectionRoutes(app: FastifyInstance, dbx: DbxClient, c
     const redirect = `${appUrl(req)}/api/connections/sfdc/callback`;
     const authorizeUrl =
       `https://${loginHost}/services/oauth2/authorize?response_type=code` +
-      `&client_id=${encodeURIComponent(body.client_id)}` +
+      `&client_id=${encodeURIComponent(clientId)}` +
       `&redirect_uri=${encodeURIComponent(redirect)}` +
       `&code_challenge=${challenge}&code_challenge_method=S256` +
       `&scope=${encodeURIComponent("api refresh_token")}` +

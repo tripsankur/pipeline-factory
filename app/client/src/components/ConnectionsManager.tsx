@@ -64,6 +64,24 @@ export default function ConnectionsManager() {
     onError: (e) => toast(String(e).slice(0, 200), "bad"),
   });
 
+  const reconnect = useMutation({
+    mutationFn: async (name: string) => {
+      // no client_id/secret: the server reuses the credentials already in the
+      // secret scope — only the browser consent happens again
+      const r = await fetch("/api/connections/sfdc/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<{ authorize_url: string }>;
+    },
+    onSuccess: (r) => {
+      window.location.href = r.authorize_url;
+    },
+    onError: (e) => toast(String(e).slice(0, 200), "bad"),
+  });
+
   const del = useMutation({
     mutationFn: async (name: string) => {
       const r = await fetch(`/api/connections/${name}`, { method: "DELETE" });
@@ -127,11 +145,12 @@ export default function ConnectionsManager() {
             </label>
           </div>
           <p style={{ fontSize: 10.4, color: "var(--pf-tmut)", margin: "10px 0" }}>
-            Keys go browser → app → Unity Catalog connection options. Nothing is stored anywhere else.
+            Keys go browser → app → Databricks secret scope. Nothing is stored anywhere else.
             Clicking connect sends you to Salesforce to consent, then straight back here.
+            <strong> Reconnecting?</strong> Leave key/secret empty — the app reuses the stored ones.
           </p>
-          <Button onClick={() => start.mutate()} disabled={start.isPending || !form.client_id || !form.client_secret}>
-            {start.isPending ? "Preparing…" : "Connect to Salesforce"}
+          <Button onClick={() => start.mutate()} disabled={start.isPending || !form.name}>
+            {start.isPending ? "Preparing…" : form.client_id ? "Connect to Salesforce" : "Connect (reuse stored credentials)"}
           </Button>
         </Card>
       )}
@@ -153,9 +172,19 @@ export default function ConnectionsManager() {
             <Mono>{c.name}</Mono>
             <span style={{ fontSize: 10, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 0.6 }}>{c.type}</span>
             <span style={{ fontSize: 10.4, color: "var(--pf-tmut)" }}>{c.comment}</span>
+            {c.type === "SALESFORCE" && (
+              <button
+                onClick={() => reconnect.mutate(c.name)}
+                disabled={reconnect.isPending}
+                title="Re-run the OAuth consent using the stored Connected App credentials — nothing to re-enter"
+                style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--pf-acc)", cursor: "pointer", fontSize: 10.8 }}
+              >
+                {reconnect.isPending ? "redirecting…" : "reconnect"}
+              </button>
+            )}
             <button
               onClick={() => del.mutate(c.name)}
-              style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--pf-bad)", cursor: "pointer", fontSize: 10.8 }}
+              style={{ marginLeft: c.type === "SALESFORCE" ? 0 : "auto", background: "none", border: "none", color: "var(--pf-bad)", cursor: "pointer", fontSize: 10.8 }}
             >
               remove
             </button>
