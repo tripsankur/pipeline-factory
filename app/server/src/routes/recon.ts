@@ -146,6 +146,53 @@ export function registerReconRoutes(
     return { runs };
   });
 
+  /** Ingestion run log (ADR-011): every workflow run — build, schedule, manual —
+   *  with per-entity counts and derived rows-ingested deltas. */
+  app.get("/api/recon/ingestion", async (req, reply) => {
+    const q = RunsQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "invalid query", detail: q.error.issues });
+    const { limit, entity } = q.data;
+
+    const mapIng = (x: Record<string, unknown>) => ({
+      run_id: String(x.run_id ?? ""),
+      source: (x.source as string | null) ?? null,
+      entity: (x.entity as string | null) ?? null,
+      trigger_type: (x.trigger_type as string | null) ?? null,
+      state: (x.state as string | null) ?? null,
+      bronze_count: num(x.bronze_count),
+      silver_count: num(x.silver_count),
+      rows_delta: x.rows_delta === null || x.rows_delta === undefined ? null : Number(x.rows_delta),
+      started_at: (x.started_at as string | null) ?? null,
+      finished_at: (x.finished_at as string | null) ?? null,
+      detail: (x.detail as string | null) ?? null,
+    });
+
+    if (pg) {
+      const r = await pg.query(
+        `SELECT run_id, source, entity, trigger_type, state, bronze_table, silver_table,
+                bronze_count, silver_count,
+                bronze_count - LAG(bronze_count) OVER (PARTITION BY source, entity ORDER BY started_at) AS rows_delta,
+                started_at::text AS started_at, finished_at::text AS finished_at, detail
+         FROM recon.ingestion_runs
+         ${entity ? "WHERE entity = $2" : ""}
+         ORDER BY started_at DESC LIMIT $1`,
+        entity ? [limit, entity] : [limit],
+      );
+      return { runs: r.rows.map(mapIng), backend: "lakebase" };
+    }
+    const rows = await dbx.sqlRows(
+      `SELECT run_id, source, entity, trigger_type, state, bronze_table, silver_table,
+              bronze_count, silver_count,
+              bronze_count - LAG(bronze_count) OVER (PARTITION BY source, entity ORDER BY started_at) AS rows_delta,
+              CAST(started_at AS STRING) AS started_at, CAST(finished_at AS STRING) AS finished_at, detail
+       FROM ${t("ingestion_runs")}
+       ${entity ? `WHERE entity = '${entity.replaceAll("'", "")}'` : ""}
+       ORDER BY started_at DESC LIMIT ${limit}`,
+      cfg.DATABRICKS_WAREHOUSE_ID,
+    );
+    return { runs: rows.map(mapIng), backend: "warehouse" };
+  });
+
   app.get("/api/recon/diffs", async (req, reply) => {
     const q = DiffsQuery.safeParse(req.query);
     if (!q.success) return reply.code(400).send({ error: "invalid query", detail: q.error.issues });

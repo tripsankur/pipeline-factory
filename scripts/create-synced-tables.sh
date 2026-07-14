@@ -33,6 +33,7 @@ create() {
 create recon_runs          workspace.ctl.recon_runs          '["recon_id"]'
 create recon_entity_result workspace.ctl.recon_entity_result '["recon_id","entity"]'
 create recon_record_diff   workspace.ctl.recon_record_diff   '["recon_id","entity","key_value","column_name"]'
+create ingestion_runs      workspace.ctl.ingestion_runs      '["run_id","entity"]'
 
 echo "Synced tables creating (async). Status:"
 echo "  $DBX postgres get-synced-table synced_tables/$CATALOG.recon.recon_runs"

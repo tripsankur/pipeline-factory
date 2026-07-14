@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type ReconDiff, type ReconRun, type ReconSummary } from "../api";
+import { api, type IngestionRun, type ReconDiff, type ReconRun, type ReconSummary } from "../api";
 import { Card, Mono } from "../components/ui";
 
 /** Reconciliation dashboard — fleet-wide loaded counts + match rates vs
@@ -115,6 +115,8 @@ export function Reconciliation() {
           tone={kpis.below_threshold > 0 ? "var(--pf-bad)" : "var(--pf-ok)"}
         />
       </div>
+
+      <IngestionPanel />
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
@@ -272,5 +274,58 @@ export function Reconciliation() {
         </Card>
       )}
     </div>
+  );
+}
+
+/** Ingestion run log (ADR-011): every workflow run — build, cron, manual —
+ *  with counts and derived row deltas. The proof that scheduled runs leave evidence. */
+function IngestionPanel() {
+  const [runs, setRuns] = useState<IngestionRun[] | null>(null);
+  useEffect(() => {
+    const load = () => api.reconIngestion().then((r) => setRuns(r.runs)).catch(() => setRuns([]));
+    load();
+    const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, []);
+  if (!runs || runs.length === 0) return null;
+  return (
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--pf-bd)", display: "flex", gap: 8, alignItems: "baseline" }}>
+        <strong style={{ fontSize: "var(--fs-h3)" }}>Ingestion runs</strong>
+        <Mono style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+          every workflow execution — scheduled runs included
+        </Mono>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
+        <thead>
+          <tr style={{ color: "var(--pf-tsec)", textAlign: "left" }}>
+            {["When", "Source / entity", "Trigger", "State", "Bronze", "Silver", "Δ rows"].map((h) => (
+              <th key={h} style={{ padding: "7px 12px", borderBottom: "1px solid var(--pf-bd)" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {runs.slice(0, 12).map((r, i) => (
+            <tr key={r.run_id + i} className="pf-row-hover">
+              <td style={{ padding: "6px 12px" }}><Mono>{r.started_at?.slice(0, 19)}</Mono></td>
+              <td style={{ padding: "6px 12px", fontWeight: 600 }}>{r.source} / {r.entity}</td>
+              <td style={{ padding: "6px 12px" }}>
+                <span style={{ padding: "1px 8px", borderRadius: "var(--rad)", fontSize: "var(--fs-micro)",
+                  background: r.trigger_type === "build" ? "var(--pf-acc-soft)" : "var(--pf-ok-soft)",
+                  color: r.trigger_type === "build" ? "var(--pf-acc)" : "var(--pf-ok)" }}>
+                  {r.trigger_type ?? "?"}
+                </span>
+              </td>
+              <td style={{ padding: "6px 12px", color: r.state === "succeeded" ? "var(--pf-ok)" : "var(--pf-bad)" }}>{r.state}</td>
+              <td style={{ padding: "6px 12px" }}>{r.bronze_count?.toLocaleString() ?? "—"}</td>
+              <td style={{ padding: "6px 12px" }}>{r.silver_count?.toLocaleString() ?? "—"}</td>
+              <td style={{ padding: "6px 12px", color: (r.rows_delta ?? 0) !== 0 ? "var(--pf-tpri)" : "var(--pf-tmut)" }}>
+                {r.rows_delta === null ? "first run" : (r.rows_delta >= 0 ? "+" : "") + r.rows_delta}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }

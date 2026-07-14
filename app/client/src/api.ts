@@ -211,6 +211,20 @@ export interface ReconSummary {
   entities: { entity: string; latest: ReconRun; trend: ReconRun[] }[];
 }
 
+export interface IngestionRun {
+  run_id: string;
+  source: string | null;
+  entity: string | null;
+  trigger_type: string | null;
+  state: string | null;
+  bronze_count: number | null;
+  silver_count: number | null;
+  rows_delta: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+  detail: string | null;
+}
+
 export interface ReconDiff {
   entity: string;
   key_value: string;
@@ -267,6 +281,8 @@ export const api = {
   reconSummary: async (): Promise<ReconSummary> => json(await fetch("/api/recon/summary")),
   reconRuns: async (entity?: string): Promise<{ runs: ReconRun[] }> =>
     json(await fetch(`/api/recon/runs${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`)),
+  reconIngestion: async (entity?: string): Promise<{ runs: IngestionRun[]; backend: string }> =>
+    json(await fetch(`/api/recon/ingestion${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`)),
   reconDiffs: async (reconId: string, entity?: string): Promise<{ diffs: ReconDiff[] }> =>
     json(
       await fetch(
