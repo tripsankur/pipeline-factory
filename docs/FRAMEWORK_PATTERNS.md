@@ -235,3 +235,26 @@ sub-batch latency, P1 on the contract cron is the right answer.
   inputs (`pf.dataflow_id` on every table) plus recon evidence that the sources
   dbt builds on actually match the system of record.
 - Roadmap flag `dbt_integration` tracks demand (feature_events clicks).
+
+---
+
+## 8. Audited gaps → prioritized roadmap (design review 2026-07-14)
+
+Independent design audit scored the framework 9/14 covered, 5 partial — no
+architectural rework required; all gaps land inside the existing ADR frame.
+
+| Priority | Gap | Planned shape |
+|---|---|---|
+| CRITICAL | Schema-drift detection & policy | workflow drift task: describe vs contract → `batch_config.drift_policy` (pass\|fail\|quarantine) |
+| HIGH | Full refresh / backfill execution | `full_refresh_cron` trigger: reset watermark + pipeline full_refresh=true; date-ranged replay API |
+| HIGH | PII → UC column tags | post spec-upsert: `ALTER TABLE … ALTER COLUMN … SET TAGS` from contract `pii:` flags |
+| HIGH | Decommission UX + audit | Settings decommission button → confirmation → tombstone + `spec_versions` reason row (docs below) |
+| MED | SLA breach surfacing | dashboard: (finished_at − started_at) vs `batch_config.sla_minutes` flag |
+| MED | Lineage API | `/api/lineage/{source}/{entity}` graph from dataflow_spec (+ dbt manifest when integrated) |
+| MED | Orchestrator integration runbook | ORCHESTRATOR_INTEGRATION.md: Airflow/ADF trigger examples + permission matrix |
+| LOW | Quarantine semantics | `{catalog}.quarantine.{source}_{entity}` for expect_or_drop rows; ops disposition flow |
+
+**Decommission flow (documented now):** operator confirms in the app → the spec's
+dataflow row is tombstoned (`is_active=false`, never deleted) → next workflow
+update drops the managed datasets deliberately → `spec_versions` records the
+reason. The drop-guard blocks any *implicit* path to the same outcome.

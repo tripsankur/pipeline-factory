@@ -66,7 +66,7 @@ const TOC = [
   ["naming", "Ingestion & naming standard"],
   ["build", "Build pipeline & fix loop"],
   ["llm", "How the LLM is prompted"],
-  ["architecture", "v2 architecture (framework + metadata)"],
+  ["architecture", "Architecture (framework + metadata + observability)"],
   ["patterns", "Framework patterns (bronze, NRT, dbt)"],
   ["features", "Features & roadmap"],
   ["trouble", "Troubleshooting"],
@@ -275,7 +275,7 @@ tables:
           <LivePrompts />
         </Section>
 
-        <Section id="architecture" title="v2 architecture — framework + metadata (ADR-008/009)">
+        <Section id="architecture" title="Architecture — framework, metadata, observability (ADR-008/009/011)">
           <p>
             <strong>One static engine, N sources.</strong> Executable code lives once in{" "}
             <Mono>databricks-ingestion-framework</Mono> (generic SDP engine + recon job, semver-versioned).
@@ -296,6 +296,15 @@ tables:
             that vanish from its graph, so decommissioning requires an explicit human confirmation. App
             state lives in Lakebase Postgres; recon results sync back as read-only tables for the
             Reconciliation dashboard (ADR-007).
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <strong>Observability &amp; control plane (ADR-011):</strong> every workflow run — build, cron,
+            or manual — writes <Mono>ctl.ingestion_runs</Mono> (bronze/silver counts) and reconciles,
+            keyed by the workflow run id; observed watermarks land in <Mono>ctl.watermarks</Mono>.
+            Operational knobs (schedule, pause, retries, SLA, notifications) live in{" "}
+            <Mono>ctl.batch_config</Mono> / <Mono>ctl.job_config</Mono> — seeded by builds, edited in
+            Settings → Batch control plane, applied to the live workflow without a rebuild. Decommission
+            = tombstone with explicit confirmation; metadata rows are never deleted.
           </p>
         </Section>
 
