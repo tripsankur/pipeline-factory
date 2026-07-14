@@ -123,6 +123,21 @@ self-schedule; the app never runs on a clock.
   to the workflow settings — deliberately left to workspace policy, not factory
   opinion.
 
+
+### External orchestrators (Airflow / Control-M / ADF) — decided: not needed
+
+Everything orchestrated is Databricks work, so **Lakeflow Jobs is the only
+scheduler** (cron, dependencies, retries, repair-run, file-arrival triggers —
+all native, all shipped inside the promoted bundle). An external orchestrator
+would require standing credentials (we run token-free on schedule), add
+infrastructure, and split "when" out of the CI/CD contract.
+
+**Escape hatch (by design):** if an enterprise mandates one, or a pipeline must
+wait on non-Databricks tasks, the external tool triggers `{source}_workflow`
+(run-now via the Databricks operator) — the workflow remains the unit of
+execution and no generated artifact changes. Reopen this decision only when a
+contract declares a cross-platform dependency.
+
 ---
 
 ## 3. Metadata requirements per pattern
