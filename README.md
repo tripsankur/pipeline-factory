@@ -126,8 +126,14 @@ Connected App in the org:
 
 - **Connected App requirements**: OAuth enabled; scopes **`api`** ("Manage user
   data via APIs") + **`refresh_token, offline_access`** ("Perform requests at
-  any time"); callback URL matching what `sf_auth.py` sends (default
-  `http://localhost:8787/callback`).
+  any time"); callback URL = the app's own handler
+  `https://<app-host>/api/connections/sfdc/callback`.
+- **How to (re)authorize — use the in-app wizard (PRIMARY PATH)**: app →
+  **Settings → Connections → Connect Salesforce** → enter connection name
+  (`sfdc_sample`) + Consumer Key/Secret → browser consent → the app's callback
+  exchanges the code (PKCE) and writes every secret below to the scope. The
+  Connected App's callback URL is already registered for this. `sf_auth.py` is
+  only a fallback for environments where the app URL cannot be registered.
 - **Secret-scope layout** (scope `pipeline_factory`, conn name `sfdc_sample`):
 
   | key | value |
@@ -160,7 +166,8 @@ Connected App in the org:
 
 | Error | Meaning | Fix |
 |---|---|---|
-| `redirect_uri_mismatch` | Connected App's Callback URLs don't include the one sf_auth sends | add `http://localhost:8787/callback` in SF Setup → App Manager → Edit (waits ~10 min), OR `python sf_auth.py --paste --callback <a-configured-url>` |
+| `redirect_uri_mismatch` | Connected App's Callback URLs don't include the redirect being sent | use the in-app wizard (Settings → Connections) — its callback is the registered one. For sf_auth.py: add `http://localhost:8787/callback` to the Connected App (waits ~10 min) |
+| script `--paste` with the APP's callback URL | impossible by design: the app's callback consumes the single-use code AND holds the PKCE verifier | use the in-app wizard for that callback; `--paste` only works with a plain (non-app) URL |
 | `invalid_grant: expired access/refresh token` | refresh token expired/revoked (or a rotation write-back was missed) | rerun `sf_auth.py` (fresh consent) |
 | `invalid_client_id` / `invalid_client` | consumer key/secret wrong or app not yet propagated | re-copy from the Connected App; new apps take ~10 min to activate |
 | discover 502 with token error | same as invalid_grant, surfaced through the app | `sf_auth.py`, then retry Discover |

@@ -14,8 +14,8 @@ Databricks trial workspace → GitHub.
 
 | # | What | How | Verify |
 |---|------|-----|--------|
-| 0.1 | Salesforce Connected App | SF Setup → App Manager → Connected App with OAuth scopes `api refresh_token`, callback `http://localhost:8787/callback` | client id/secret in hand |
-| 0.2 | SF credentials in secret scope | `python scripts/demo/sf_auth.py --client-id … --client-secret …` (browser consent; writes refresh token to scope `pipeline_factory`) | `python scripts/demo/sf_auth.py --check` → "refresh token OK" |
+| 0.1 | Salesforce Connected App | SF Setup → App Manager → Connected App with OAuth scopes `api refresh_token`, callback `https://<app-host>/api/connections/sfdc/callback` | client id/secret in hand |
+| 0.2 | SF credentials in secret scope | **In-app wizard**: Settings → Connections → Connect Salesforce → name `sfdc_sample` + Consumer Key/Secret → browser consent (app callback stores all secrets). Fallback: `sf_auth.py` with a `localhost` callback registered | `python scripts/demo/sf_auth.py --check` → "refresh token OK" |
 | 0.3 | **Lakeflow Connect UC connection** `sfdc_sample` | Catalog Explorer → External data → Connections → Create → **Salesforce** → name `sfdc_sample` → complete the OAuth consent in the popup (this is the design's one-time human consent gate) | `databricks connections list` shows `sfdc_sample SALESFORCE` |
 | 0.4 | Grant connection to app SP | `GRANT USE CONNECTION ON CONNECTION sfdc_sample TO ` `` `38ec922f-43ac-4263-b795-4f3c508b97f8` `` | SQL editor, runs clean |
 | 0.5 | Sync-pipeline grants to app SP | For each of the 4 `Synced table: pf_lakebase.recon.*` pipeline ids: `databricks permissions update pipelines <id> --json '{"access_control_list":[{"service_principal_name":"38ec922f-43ac-4263-b795-4f3c508b97f8","permission_level":"CAN_RUN"}]}'` | next build's workflow shows `sync_1..4` tasks |
