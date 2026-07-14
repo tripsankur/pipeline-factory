@@ -79,7 +79,7 @@ registerConnectionRoutes(app, dbx, cfg);
 registerReconRoutes(app, dbx, cfg, pgStore);
 registerPromptRoutes(app, registry);
 registerConfigRoutes(app, dbx, cfg);
-registerOpsRoutes(app, dbx, cfg, registry);
+registerOpsRoutes(app, dbx, cfg, registry, pgStore);
 
 // serve built client (dist/public next to the bundled server)
 const here = dirname(fileURLToPath(import.meta.url));

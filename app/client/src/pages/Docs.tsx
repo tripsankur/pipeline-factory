@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card, Mono } from "../components/ui";
+import { Mermaid } from "../components/Mermaid";
+import { ARCH_DIAGRAMS } from "../lib/architecture-diagrams";
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -67,6 +69,7 @@ const TOC = [
   ["build", "Build pipeline & fix loop"],
   ["llm", "How the LLM is prompted"],
   ["architecture", "Architecture (framework + metadata + observability)"],
+  ["diagrams", "Architecture diagrams (C4: context → containers → components)"],
   ["patterns", "Framework patterns (bronze, NRT, dbt)"],
   ["features", "Features & roadmap"],
   ["trouble", "Troubleshooting"],
@@ -306,6 +309,18 @@ tables:
             Settings → Batch control plane, applied to the live workflow without a rebuild. Decommission
             = tombstone with explicit confirmation; metadata rows are never deleted.
           </p>
+        </Section>
+
+        <Section id="diagrams" title="Architecture diagrams — C4: context → containers → components">
+          <p style={{ marginTop: 0 }}>
+            Layered principal-architect view: <strong>L1 system context → L2 app containers → L3
+            component diagrams per capability</strong>. The Mermaid sources are version-controlled in{" "}
+            <Mono>docs/ARCHITECTURE_DIAGRAMS.md</Mono> (authoritative, rendered on GitHub) and mirrored
+            in Lucid for visual editing — what you see below renders live from the same sources.
+          </p>
+          {ARCH_DIAGRAMS.map((d) => (
+            <Mermaid key={d.id} title={d.title} caption={d.caption} code={d.code} />
+          ))}
         </Section>
 
         <Section id="patterns" title="Framework patterns — the defined shapes for ingestion">

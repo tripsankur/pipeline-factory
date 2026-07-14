@@ -224,6 +224,14 @@ export class DbxClient {
     await this.request("POST", "/api/2.2/jobs/reset", { job_id: jobId, new_settings: settings });
   }
 
+  async jobDelete(jobId: number): Promise<void> {
+    await this.request("POST", "/api/2.2/jobs/delete", { job_id: jobId });
+  }
+
+  async pipelineDelete(pipelineId: string): Promise<void> {
+    await this.request("DELETE", `/api/2.0/pipelines/${pipelineId}`);
+  }
+
   /** PARTIAL settings update (merge semantics) — config-table PATCH path. */
   async jobUpdate(jobId: number, newSettings: Record<string, unknown>): Promise<void> {
     await this.request("POST", "/api/2.2/jobs/update", { job_id: jobId, new_settings: newSettings });

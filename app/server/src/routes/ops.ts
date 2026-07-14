@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dataflowSpecTombstoneSql, fq } from "@pf/core";
 import type { DbxClient } from "@pf/dbx";
 import type { AppConfig } from "../config.js";
+import type { PgStore } from "../lib/store/pg-store.js";
 import type { RegistryStore } from "../lib/store/types.js";
 
 /**
@@ -21,7 +22,96 @@ export function registerOpsRoutes(
   dbx: DbxClient,
   cfg: AppConfig,
   registry: RegistryStore,
+  pg: PgStore | null,
 ): void {
+  /** Demo / practice reset: tear down EVERYTHING the factory created for one
+   *  source — jobs, pipelines, managed tables, control-plane rows, registry
+   *  state — so a demo can rebuild from a blank slate. Framework bundle,
+   *  UC connections and secret scopes are deliberately untouched.
+   *  Typed confirmation `reset {source}` required. */
+  app.post("/api/ops/demo-reset/:source", async (req, reply) => {
+    const { source } = req.params as { source: string };
+    const body = z.object({ confirm: z.string() }).safeParse(req.body);
+    if (!body.success || body.data.confirm !== `reset ${source}`) {
+      return reply.code(400).send({ error: `confirm must be exactly 'reset ${source}'` });
+    }
+    const wh = cfg.DATABRICKS_WAREHOUSE_ID;
+    const deleted: Record<string, unknown> = { jobs: [], pipelines: [], tables: [], specs: [] };
+
+    // capture target tables + spec ids BEFORE deleting the metadata that names them
+    const rows = await dbx.sqlRows(
+      `SELECT dataflow_id, target_details FROM ${fq(cfg.registry, "dataflow_spec")}
+       WHERE dataflow_group = ${lit(source)}`,
+      wh,
+    );
+    const specIds = rows.map((r) => String(r.dataflow_id));
+    const tables = new Set<string>();
+    for (const r of rows) {
+      try {
+        const t = JSON.parse(r.target_details ?? "{}") as Record<string, string>;
+        for (const k of ["bronze_table", "silver_table", "crosswalk_table"]) if (t[k]) tables.add(t[k]!);
+      } catch {
+        /* ignore malformed rows */
+      }
+    }
+
+    // 1. workflow job
+    const jr = await dbx.jobsList(`${source}_workflow`);
+    for (const j of jr.jobs ?? []) {
+      if (j.settings?.name === `${source}_workflow`) {
+        await dbx.jobDelete(j.job_id);
+        (deleted.jobs as unknown[]).push(j.job_id);
+      }
+    }
+    // 2. pipelines (ingest + etl; sync pipelines are shared infra — kept)
+    for (const name of [`brnz_${source}_ingest`, `slvr_${source}_etl`]) {
+      const pr = await dbx.pipelineList(name);
+      for (const p of (pr.statuses ?? []).filter((s) => s.name === name)) {
+        await dbx.pipelineDelete(p.pipeline_id);
+        (deleted.pipelines as unknown[]).push(p.pipeline_id);
+      }
+    }
+    // 3. managed tables
+    for (const t of tables) {
+      await dbx.sql(`DROP TABLE IF EXISTS ${t}`, wh).catch(() => undefined);
+      (deleted.tables as unknown[]).push(t);
+    }
+    // 4. control-plane + observability rows (Delta; CDF propagates deletes to synced tables)
+    const bySource = ["dataflow_spec:dataflow_group", "ingestion_runs:source", "watermarks:source", "drift_events:source", "batch_config:source", "job_config:source"];
+    for (const spec of bySource) {
+      const [table, col] = spec.split(":") as [string, string];
+      await dbx.sql(`DELETE FROM ${fq(cfg.registry, table)} WHERE ${col} = ${lit(source)}`, wh).catch(() => undefined);
+    }
+    if (specIds.length > 0) {
+      const idList = specIds.map(lit).join(", ");
+      for (const t of ["recon_runs", "spec_registry", "spec_versions", "staged_artifacts", "build_runs", "llm_calls"]) {
+        await dbx.sql(`DELETE FROM ${fq(cfg.registry, t)} WHERE spec_id IN (${idList})`, wh).catch(() => undefined);
+      }
+      // recon entity/diff rows key on recon_id — clean orphans
+      await dbx
+        .sql(`DELETE FROM ${fq(cfg.registry, "recon_entity_result")} WHERE recon_id NOT IN (SELECT recon_id FROM ${fq(cfg.registry, "recon_runs")})`, wh)
+        .catch(() => undefined);
+      await dbx
+        .sql(`DELETE FROM ${fq(cfg.registry, "recon_record_diff")} WHERE recon_id NOT IN (SELECT recon_id FROM ${fq(cfg.registry, "recon_runs")})`, wh)
+        .catch(() => undefined);
+      // 5. pg registry (the authority the UI reads) — same scope
+      if (pg) {
+        for (const t of ["spec_versions", "staged_artifacts", "build_runs", "llm_calls", "spec_registry"]) {
+          await pg.query(`DELETE FROM pipeline_factory.${t} WHERE spec_id = ANY($1)`, [specIds]).catch(() => undefined);
+        }
+      }
+      deleted.specs = specIds;
+    }
+    const user = (req.headers["x-forwarded-email"] as string) || cfg.PF_DEV_USER_EMAIL || "operator";
+    await registry.logFeatureEvent(`demo_reset:${source}`, user).catch(() => undefined);
+    return {
+      reset: source,
+      deleted,
+      kept: ["framework bundle + engine", "UC connections", "secret scopes", "sync pipelines", "Lakebase project"],
+      next: "re-ingest the interface contract on the Intake page to rebuild from scratch",
+    };
+  });
+
   /** Full refresh / backfill (gap #2): watermark reset + full_refresh updates on
    *  the source's pipelines. Next workflow run re-logs and re-reconciles. */
   app.post("/api/ops/full-refresh/:source", async (req, reply) => {
