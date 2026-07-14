@@ -7,6 +7,9 @@ resources:
 {% if connection %}
     brnz_{{ source }}_ingest:
       name: brnz_{{ source }}_ingest
+      # direct publishing mode: default catalog/schema required at pipeline level
+      catalog: {{ objects[0].destination_catalog }}
+      schema: {{ objects[0].destination_schema }}
       ingestion_definition:
         connection_name: {{ connection }}
         objects:

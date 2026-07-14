@@ -6,6 +6,9 @@ resources:
   pipelines:
     brnz_aldm_ingest:
       name: brnz_aldm_ingest
+      # direct publishing mode: default catalog/schema required at pipeline level
+      catalog: workspace
+      schema: bronze
       ingestion_definition:
         connection_name: sfdc_sample
         objects:

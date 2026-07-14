@@ -50,11 +50,16 @@ export async function ensureIngestionPipeline(
 ): Promise<string | null> {
   if (!input.connectionName) return null;
   const name = `brnz_${input.source}_ingest`;
+  const first = input.sourceObjects[0];
   const body = {
     name,
     serverless: true,
     continuous: false,
     channel: "PREVIEW",
+    // direct publishing mode requires a default catalog/schema at pipeline level;
+    // per-object destination_* still routes each table (CATALOG_REQUIRED_IN_DPM)
+    catalog: first?.destination_catalog ?? "workspace",
+    schema: first?.destination_schema ?? "bronze",
     ingestion_definition: {
       connection_name: input.connectionName,
       objects: input.sourceObjects.map((o) => ({
