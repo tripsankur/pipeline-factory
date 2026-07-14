@@ -2,6 +2,8 @@
 
 Diagrams: `docs/design/architecture-v2.md` (Lucid — C4 context/containers, data
 architecture, build sequence). Decisions: `docs/ADR/` (001–010).
+Prescriptive pattern catalog (which primitive per source type, workflow shapes,
+per-pattern metadata): `docs/FRAMEWORK_PATTERNS.md`.
 
 ## The one-sentence version
 
