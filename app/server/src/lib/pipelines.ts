@@ -1,5 +1,15 @@
 import type { DbxClient } from "@pf/dbx";
-import { fq, type Spec, type SourceObject } from "@pf/core";
+import {
+  batchConfigSelectSql,
+  fq,
+  jobConfigSelectSql,
+  parseBatchConfigRow,
+  parseJobConfigRow,
+  type BatchConfig,
+  type JobConfig,
+  type Spec,
+  type SourceObject,
+} from "@pf/core";
 import type { AppConfig } from "../config.js";
 
 /**
@@ -110,14 +120,49 @@ export async function ensureEtlPipeline(
   return pipeline_id;
 }
 
+/** Read the control-plane config for a source (ADR-011). Seeded by builds,
+ *  edited by operators — this is the single authority for when/how-operated. */
+export async function loadControlPlane(
+  dbx: DbxClient,
+  cfg: AppConfig,
+  source: string,
+): Promise<{ batch: BatchConfig; job: JobConfig }> {
+  const [batchRows, jobRows] = await Promise.all([
+    dbx.sqlRows(batchConfigSelectSql(cfg.registry, source), cfg.DATABRICKS_WAREHOUSE_ID),
+    dbx.sqlRows(jobConfigSelectSql(cfg.registry, source), cfg.DATABRICKS_WAREHOUSE_ID),
+  ]);
+  const batch = batchRows[0]
+    ? parseBatchConfigRow(batchRows[0])
+    : parseBatchConfigRow({ source, schedule_cron: null, enabled: "true" } as never);
+  return { batch: { ...batch, source }, job: parseJobConfigRow(jobRows[0]) };
+}
+
+/** Sync-refresh pipelines (Lakebase synced tables) — resolved by name so the
+ *  workflow can chain them SEQUENTIALLY after recon (trial quota: 1 concurrent). */
+export async function findSyncPipelineIds(dbx: DbxClient): Promise<string[]> {
+  const r = await dbx.pipelineList("Synced table: pf_lakebase.recon.%");
+  return (r.statuses ?? [])
+    .map((s) => ({ id: s.pipeline_id, name: s.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((s) => s.id);
+}
+
 export async function ensureWorkflow(
   dbx: DbxClient,
+  cfg: AppConfig,
   input: ProvisionInput,
   ingestionPipelineId: string | null,
   etlPipelineId: string,
   log: (t: string) => void,
 ): Promise<number> {
   const name = `${input.source}_workflow`;
+  const { batch, job } = await loadControlPlane(dbx, cfg, input.source);
+  const specTable = `${cfg.PF_CATALOG}.${cfg.PF_SCHEMA}.dataflow_spec`;
+  const retry = {
+    max_retries: batch.max_retries,
+    min_retry_interval_millis: batch.retry_backoff_seconds * 1000,
+  };
+
   const tasks: Record<string, unknown>[] = [];
   if (ingestionPipelineId) {
     tasks.push({
@@ -130,29 +175,80 @@ export async function ensureWorkflow(
     ...(ingestionPipelineId ? { depends_on: [{ task_key: "ingest" }] } : {}),
     pipeline_task: { pipeline_id: etlPipelineId, full_refresh: false },
   });
+  // observability plane (ADR-011): every run — cron or build — logs itself,
+  // reconciles, then refreshes the dashboard's synced tables
+  tasks.push({
+    task_key: "log_run",
+    depends_on: [{ task_key: "etl" }],
+    ...retry,
+    spark_python_task: {
+      python_file: `${cfg.PF_FRAMEWORK_ENGINE_PATH}/run_logger.py`,
+      parameters: [
+        "--source", input.source,
+        "--spec-table", specTable,
+        "--run-id", "{{job.run_id}}",
+        "--trigger-type", "{{job.parameters.trigger_type}}",
+        "--catalog", cfg.PF_CATALOG,
+        "--schema", cfg.PF_SCHEMA,
+      ],
+    },
+    environment_key: "default",
+  });
+  tasks.push({
+    task_key: "recon",
+    depends_on: [{ task_key: "log_run" }],
+    ...retry,
+    spark_python_task: {
+      python_file: `${cfg.PF_FRAMEWORK_ENGINE_PATH}/recon_job.py`,
+      parameters: [
+        "--source", input.source,
+        "--spec-table", specTable,
+        "--run-id", "{{job.run_id}}",
+        "--catalog", cfg.PF_CATALOG,
+        "--schema", cfg.PF_SCHEMA,
+      ],
+    },
+    environment_key: "default",
+  });
+  const syncIds = await findSyncPipelineIds(dbx);
+  syncIds.forEach((id, i) => {
+    tasks.push({
+      task_key: `sync_${i + 1}`,
+      depends_on: [{ task_key: i === 0 ? "recon" : `sync_${i}` }],
+      pipeline_task: { pipeline_id: id, full_refresh: false },
+    });
+  });
+
   const settings: Record<string, unknown> = {
     name,
-    tags: TAGS,
+    tags: { ...TAGS, ...job.tags },
+    max_concurrent_runs: job.max_concurrent_runs,
+    ...(job.timeout_minutes ? { timeout_seconds: job.timeout_minutes * 60 } : {}),
+    parameters: [{ name: "trigger_type", default: "schedule" }],
+    environments: [{ environment_key: "default", spec: { client: "2" } }],
     tasks,
-    ...(input.batchSchedule
+    ...(batch.schedule_cron
       ? {
           schedule: {
-            quartz_cron_expression: input.batchSchedule,
-            timezone_id: "America/New_York",
-            pause_status: "UNPAUSED",
+            quartz_cron_expression: batch.schedule_cron,
+            timezone_id: batch.timezone,
+            pause_status: batch.enabled ? "UNPAUSED" : "PAUSED",
           },
         }
+      : {}),
+    ...(batch.notify_emails.length > 0
+      ? { email_notifications: { on_failure: batch.notify_emails } }
       : {}),
   };
   const r = await dbx.jobsList(name);
   const existing = (r.jobs ?? []).find((j) => j.settings?.name === name);
   if (existing) {
     await dbx.jobReset(existing.job_id, settings);
-    log(`▸ provision: workflow ${name} updated (job ${existing.job_id})`);
+    log(`▸ provision: workflow ${name} updated (job ${existing.job_id}, ${tasks.length} tasks, cron ${batch.schedule_cron ?? "none"}${batch.enabled ? "" : " PAUSED"})`);
     return existing.job_id;
   }
   const { job_id } = await dbx.jobCreate(settings);
-  log(`▸ provision: workflow ${name} created (job ${job_id})`);
+  log(`▸ provision: workflow ${name} created (job ${job_id}, ${tasks.length} tasks)`);
   return job_id;
 }
 

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card } from "../components/ui";
 import ConnectionsManager from "../components/ConnectionsManager";
@@ -24,6 +25,7 @@ export default function Settings() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
       <ConnectionsManager />
+      <BatchConfigPanel />
       <div>
         <h3 style={{ fontSize: 12.8, margin: "0 0 10px" }}>Platform health</h3>
         {connections.isLoading && <p style={{ color: "var(--pf-tsec)" }}>Checking…</p>}
@@ -91,6 +93,123 @@ export default function Settings() {
           ))}
         </Card>
       </div>
+    </div>
+  );
+}
+
+interface BatchCfg {
+  source: string;
+  schedule_cron: string | null;
+  timezone: string;
+  enabled: boolean;
+  sla_minutes: number | null;
+  notify_emails: string[];
+  max_retries: number;
+}
+
+/** Control plane (ADR-011): schedule / pause / SLA / notifications are
+ *  config-table-driven — edits apply to the live workflow without a rebuild. */
+function BatchConfigPanel() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["batch-config"],
+    queryFn: async () => {
+      const r = await fetch("/api/config/batches");
+      if (!r.ok) throw new Error(await r.text());
+      return (await r.json()) as { batches: BatchCfg[] };
+    },
+  });
+  const [drafts, setDrafts] = useState<Record<string, Partial<BatchCfg>>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+
+  const save = async (source: string) => {
+    const d = drafts[source];
+    if (!d) return;
+    setBusy(source);
+    try {
+      const r = await fetch(`/api/config/batches/${encodeURIComponent(source)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(d),
+      });
+      const data = (await r.json()) as { applied?: string; error?: string };
+      if (!r.ok) throw new Error(data.error ?? "patch failed");
+      setMsg(`${source}: ${data.applied ?? "saved"}`);
+      setDrafts((x) => ({ ...x, [source]: {} }));
+      void qc.invalidateQueries({ queryKey: ["batch-config"] });
+    } catch (e) {
+      setMsg(String(e).slice(0, 180));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (q.isError) return null;
+  const batches = q.data?.batches ?? [];
+  if (batches.length === 0) return null;
+
+  const input = (v: string, on: (s: string) => void, w = 150) => (
+    <input
+      value={v}
+      onChange={(e) => on(e.target.value)}
+      style={{ width: w, padding: "4px 8px", borderRadius: "var(--rad)", border: "1px solid var(--pf-bd2)", background: "var(--pf-input-bg)", color: "var(--pf-tpri)", fontFamily: "var(--pf-font-mono)", fontSize: "var(--fs-mono)" }}
+    />
+  );
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 12.8, margin: "0 0 4px" }}>Batch control plane</h3>
+      <p style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)", margin: "0 0 8px" }}>
+        Schedule / pause / SLA / notifications live in <code>ctl.batch_config</code> — edits apply to the
+        live workflow without a rebuild (retry policy applies on the next build).
+      </p>
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
+          <thead>
+            <tr style={{ color: "var(--pf-tsec)", textAlign: "left" }}>
+              {["Source", "Cron (quartz)", "Enabled", "SLA min", "Notify (comma-sep)", ""].map((h) => (
+                <th key={h} style={{ padding: "7px 12px", borderBottom: "1px solid var(--pf-bd)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {batches.map((b) => {
+              const d = drafts[b.source] ?? {};
+              return (
+                <tr key={b.source} className="pf-row">
+                  <td style={{ padding: "6px 12px", fontWeight: 600 }}>{b.source}</td>
+                  <td style={{ padding: "6px 12px" }}>
+                    {input(d.schedule_cron !== undefined ? (d.schedule_cron ?? "") : (b.schedule_cron ?? ""), (v) =>
+                      setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], schedule_cron: v || null } })), 160)}
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
+                    <input
+                      type="checkbox"
+                      checked={d.enabled !== undefined ? d.enabled : b.enabled}
+                      onChange={(e) => setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], enabled: e.target.checked } }))}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
+                    {input(String(d.sla_minutes !== undefined ? (d.sla_minutes ?? "") : (b.sla_minutes ?? "")), (v) =>
+                      setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], sla_minutes: v ? Number(v) : null } })), 70)}
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
+                    {input((d.notify_emails ?? b.notify_emails).join(","), (v) =>
+                      setDrafts((x) => ({ ...x, [b.source]: { ...x[b.source], notify_emails: v ? v.split(",").map((s) => s.trim()) : [] } })), 220)}
+                  </td>
+                  <td style={{ padding: "6px 12px" }}>
+                    <button className="pf-btn" onClick={() => void save(b.source)} disabled={busy === b.source || !drafts[b.source] || Object.keys(drafts[b.source] ?? {}).length === 0}>
+                      {busy === b.source ? "Saving…" : "Save"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {msg && <div style={{ padding: "6px 12px", fontSize: "var(--fs-micro)", color: "var(--pf-tsec)", borderTop: "1px solid var(--pf-bd)" }}>{msg}</div>}
+      </Card>
     </div>
   );
 }

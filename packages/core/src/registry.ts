@@ -146,5 +146,58 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       updated_at TIMESTAMP NOT NULL,
       created_by STRING
     ) ${CDF_PROPS}`,
+
+    // ---- observability plane (ADR-011): every run leaves evidence ----
+    `CREATE TABLE IF NOT EXISTS ${t("ingestion_runs")} (
+      run_id STRING NOT NULL,
+      source STRING NOT NULL,
+      entity STRING NOT NULL,
+      trigger_type STRING,
+      bronze_table STRING,
+      silver_table STRING,
+      bronze_count BIGINT,
+      silver_count BIGINT,
+      state STRING NOT NULL,
+      started_at TIMESTAMP,
+      finished_at TIMESTAMP,
+      detail STRING
+    ) ${CDF_PROPS}`,
+
+    `CREATE TABLE IF NOT EXISTS ${t("watermarks")} (
+      source STRING NOT NULL,
+      entity STRING NOT NULL,
+      cursor_column STRING,
+      last_value STRING,
+      last_run_id STRING,
+      updated_at TIMESTAMP NOT NULL
+    ) ${CDF_PROPS}`,
+
+    // ---- control plane (ADR-011): batch/job config, seeded by builds,
+    //      edited by operators, read by the provisioner ----
+    `CREATE TABLE IF NOT EXISTS ${t("batch_config")} (
+      source STRING NOT NULL,
+      schedule_cron STRING,
+      timezone STRING,
+      enabled BOOLEAN NOT NULL,
+      priority STRING,
+      max_retries INT,
+      retry_backoff_seconds INT,
+      sla_minutes INT,
+      notify_emails ARRAY<STRING>,
+      full_refresh_cron STRING,
+      updated_at TIMESTAMP NOT NULL,
+      updated_by STRING
+    ) ${CDF_PROPS}`,
+
+    `CREATE TABLE IF NOT EXISTS ${t("job_config")} (
+      source STRING NOT NULL,
+      timeout_minutes INT,
+      max_concurrent_runs INT,
+      tags MAP<STRING,STRING>,
+      serverless BOOLEAN,
+      channel STRING,
+      updated_at TIMESTAMP NOT NULL,
+      updated_by STRING
+    ) ${CDF_PROPS}`,
   ];
 }

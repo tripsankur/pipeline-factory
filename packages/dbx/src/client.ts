@@ -224,6 +224,11 @@ export class DbxClient {
     await this.request("POST", "/api/2.2/jobs/reset", { job_id: jobId, new_settings: settings });
   }
 
+  /** PARTIAL settings update (merge semantics) — config-table PATCH path. */
+  async jobUpdate(jobId: number, newSettings: Record<string, unknown>): Promise<void> {
+    await this.request("POST", "/api/2.2/jobs/update", { job_id: jobId, new_settings: newSettings });
+  }
+
   /** Read one secret (app SP needs READ on the scope). Value is base64. */
   async secretGet(scope: string, key: string): Promise<string> {
     const r = await this.request<{ value?: string }>(

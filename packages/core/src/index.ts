@@ -1,6 +1,7 @@
 export * from "./spec.js";
 export * from "./registry.js";
 export * from "./dataflow-spec.js";
+export * from "./control-plane.js";
 export * from "./flags.js";
 export * from "./renderer.js";
 export * from "./manifest.js";

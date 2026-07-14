@@ -18,6 +18,10 @@ describe("registryDdl", () => {
       "feature_events",
       "staged_artifacts",
       "dataflow_spec",
+      "ingestion_runs",
+      "watermarks",
+      "batch_config",
+      "job_config",
     ];
     for (const t of tables) {
       expect(ddl.some((s) => s.includes(`\`${t}\``))).toBe(true);

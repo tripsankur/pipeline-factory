@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
   applyDelta,
+  batchConfigSeedSql,
   branchName,
   buildEvidenceMarkdown,
   buildManifest,
   commitMessage,
   dataflowSpecMergeSql,
+  jobConfigSeedSql,
   evidencePath,
   fq,
   specSourceObject,
@@ -32,7 +34,6 @@ import {
   ensureEtlPipeline,
   ensureIngestionPipeline,
   ensureWorkflow,
-  findReconJobId,
   type ProvisionInput,
 } from "./pipelines.js";
 
@@ -89,13 +90,13 @@ async function runJobAndWait(
   log: (t: string) => void,
   label: string,
   timeoutMs = 30 * 60_000,
-): Promise<{ ok: boolean; state: string; message: string }> {
+): Promise<{ ok: boolean; state: string; message: string; runId: number }> {
   const { run_id } = await dbx.jobRunNow(jobId, params);
   log(`▸ ${label}: job run ${run_id} submitted`);
   const deadline = Date.now() + timeoutMs;
   let last = "";
   for (;;) {
-    if (Date.now() > deadline) return { ok: false, state: "TIMEOUT", message: "job timed out" };
+    if (Date.now() > deadline) return { ok: false, state: "TIMEOUT", message: "job timed out", runId: run_id };
     await new Promise((r) => setTimeout(r, 8000));
     const run = await dbx.jobGetRun(run_id);
     const lc = run.state.life_cycle_state;
@@ -120,7 +121,7 @@ async function runJobAndWait(
           }
         }
       }
-      return { ok, state: run.state.result_state ?? lc, message };
+      return { ok, state: run.state.result_state ?? lc, message, runId: run_id };
     }
   }
 }
@@ -253,6 +254,9 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
   const upsertSpec = async (result: RenderResult): Promise<void> => {
     emit({ type: "step", step: "spec_upsert", status: "running" });
     await dbx.sql(dataflowSpecMergeSql(cfg.registry, result.row), warehouse);
+    // seed the control plane (ADR-011): INSERT-only — operator edits survive rebuilds
+    await dbx.sql(batchConfigSeedSql(cfg.registry, source, facts.schedule), warehouse);
+    await dbx.sql(jobConfigSeedSql(cfg.registry, source), warehouse);
     const staged = fq(cfg.registry, "staged_artifacts");
     await dbx.sql(
       `DELETE FROM ${staged} WHERE spec_id = ${lit(spec!.spec_id)} AND spec_version = ${spec!.spec_version}`,
@@ -297,7 +301,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     };
     const ingestionId = await ensureIngestionPipeline(dbx, input, log);
     const etlId = await ensureEtlPipeline(dbx, cfg, input, log);
-    const workflowJobId = await ensureWorkflow(dbx, input, ingestionId, etlId, log);
+    const workflowJobId = await ensureWorkflow(dbx, cfg, input, ingestionId, etlId, log);
     emit({
       type: "step",
       step: "provision",
@@ -310,7 +314,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
   /** One workflow(ingest→etl) → dq → recon pass. */
   const attempt = async (assets: { ingestionId: string | null; etlId: string; workflowJobId: number }): Promise<AttemptOutcome> => {
     emit({ type: "step", step: "workflow_run", status: "running" });
-    const wfRes = await runJobAndWait(dbx, assets.workflowJobId, {}, log, "workflow");
+    const wfRes = await runJobAndWait(dbx, assets.workflowJobId, { trigger_type: "build" }, log, "workflow");
     if (!wfRes.ok) {
       // enrich with ETL pipeline event errors — the real failure usually lives there
       const dq = await collectDqFromEvents(dbx, assets.etlId).catch(() => ({ summary: "", failures: [] as string[] }));
@@ -333,52 +337,35 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     }
 
     emit({ type: "step", step: "recon", status: "running" });
-    const reconJobId = await findReconJobId(dbx, cfg.PF_FRAMEWORK_RECON_JOB_NAME);
-    if (!reconJobId) {
-      emit({ type: "step", step: "recon", status: "deferred", meta: "framework recon job not found" });
-      log("▸ recon: pf-framework-recon job not found — deploy the ingestion-framework bundle");
-      return { ok: true, recon: null, testsMeta: dq.summary };
-    }
-    const reconId = randomUUID();
-    const reconRes = await runJobAndWait(
-      dbx,
-      reconJobId,
-      {
-        source,
-        entity: spec!.entity,
-        spec_table: `${cfg.PF_CATALOG}.${cfg.PF_SCHEMA}.dataflow_spec`,
-        recon_id: reconId,
-        run_id: runId,
-        catalog: cfg.PF_CATALOG,
-        schema: cfg.PF_SCHEMA,
-      },
-      log,
-      "recon",
-    );
-    if (!reconRes.ok) {
-      emit({ type: "step", step: "recon", status: "failed", meta: reconRes.state });
-      return { ok: false, failedStep: "recon", evidence: `recon job failed: ${reconRes.state} ${reconRes.message}`, testsMeta: dq.summary };
-    }
+    // ADR-011: recon ran INSIDE the workflow (self-generated recon_id, run_id =
+    // the workflow run id) — read its results instead of launching another job
+    const wfRunId = String(wfRes.runId);
     const reconRows = await dbx.sqlRows(
-      `SELECT key_match_rate, row_match_rate, attr_match_rate
-       FROM ${fq(cfg.registry, "recon_entity_result")} WHERE recon_id = ${lit(reconId)} LIMIT 1`,
+      `SELECT e.recon_id, e.key_match_rate, e.row_match_rate, e.attr_match_rate
+       FROM ${fq(cfg.registry, "recon_entity_result")} e
+       INNER JOIN ${fq(cfg.registry, "recon_runs")} rr ON rr.recon_id = e.recon_id
+       WHERE rr.run_id = ${lit(wfRunId)} AND e.entity = ${lit(spec!.entity)}
+       ORDER BY e.created_at DESC LIMIT 1`,
       warehouse,
     );
     const rr = reconRows[0];
-    const recon = rr
-      ? {
-          keyMatchRate: rr.key_match_rate === null ? null : Number(rr.key_match_rate),
-          rowMatchRate: rr.row_match_rate === null ? null : Number(rr.row_match_rate),
-          attrMatchRate: rr.attr_match_rate === null ? null : Number(rr.attr_match_rate),
-        }
-      : null;
+    if (!rr) {
+      emit({ type: "step", step: "recon", status: "deferred", meta: "no recon rows for this run" });
+      log("▸ recon: workflow produced no recon rows — check the recon task");
+      return { ok: true, recon: null, testsMeta: dq.summary };
+    }
+    const reconId = rr.recon_id ?? "";
+    const recon = {
+      keyMatchRate: rr.key_match_rate === null ? null : Number(rr.key_match_rate),
+      rowMatchRate: rr.row_match_rate === null ? null : Number(rr.row_match_rate),
+      attrMatchRate: rr.attr_match_rate === null ? null : Number(rr.attr_match_rate),
+    };
     const pct = (v: number | null | undefined) => (v === null || v === undefined ? "n/a" : `${(v * 100).toFixed(2)}%`);
 
     const belowThreshold =
-      recon !== null &&
-      ((recon.keyMatchRate ?? 1) < cfg.PF_RECON_MIN_KEY || (recon.attrMatchRate ?? 1) < cfg.PF_RECON_MIN_ATTR);
+      (recon.keyMatchRate ?? 1) < cfg.PF_RECON_MIN_KEY || (recon.attrMatchRate ?? 1) < cfg.PF_RECON_MIN_ATTR;
     if (belowThreshold) {
-      emit({ type: "step", step: "recon", status: "failed", meta: `key ${pct(recon!.keyMatchRate)} · attr ${pct(recon!.attrMatchRate)} below threshold` });
+      emit({ type: "step", step: "recon", status: "failed", meta: `key ${pct(recon.keyMatchRate)} · attr ${pct(recon.attrMatchRate)} below threshold` });
       const diffs = await dbx.sqlRows(
         `SELECT key_value, column_name, source_value, target_value FROM ${fq(cfg.registry, "recon_record_diff")}
          WHERE recon_id = ${lit(reconId)} LIMIT 10`,
@@ -388,14 +375,15 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
         ok: false,
         failedStep: "recon",
         evidence:
-          `recon below threshold (key ${pct(recon!.keyMatchRate)} < ${cfg.PF_RECON_MIN_KEY} or attr ${pct(recon!.attrMatchRate)} < ${cfg.PF_RECON_MIN_ATTR}).\n` +
+          `recon below threshold (key ${pct(recon.keyMatchRate)} < ${cfg.PF_RECON_MIN_KEY} or attr ${pct(recon.attrMatchRate)} < ${cfg.PF_RECON_MIN_ATTR}).
+` +
           `Sample mismatched records: ${JSON.stringify(diffs)}`,
         testsMeta: dq.summary,
         recon,
       };
     }
-    emit({ type: "step", step: "recon", status: "done", meta: `key ${pct(recon?.keyMatchRate)} · attr ${pct(recon?.attrMatchRate)}` });
-    log(`✓ recon: key ${pct(recon?.keyMatchRate)} row ${pct(recon?.rowMatchRate)} attr ${pct(recon?.attrMatchRate)}`);
+    emit({ type: "step", step: "recon", status: "done", meta: `key ${pct(recon.keyMatchRate)} · attr ${pct(recon.attrMatchRate)}` });
+    log(`✓ recon: key ${pct(recon.keyMatchRate)} row ${pct(recon.rowMatchRate)} attr ${pct(recon.attrMatchRate)}`);
     return { ok: true, recon, testsMeta: dq.summary };
   };
 

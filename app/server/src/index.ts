@@ -21,6 +21,7 @@ import { registerFleetRoutes } from "./routes/fleet.js";
 import { registerConnectionRoutes } from "./routes/connections.js";
 import { registerReconRoutes } from "./routes/recon.js";
 import { registerPromptRoutes } from "./routes/prompts.js";
+import { registerConfigRoutes } from "./routes/config.js";
 
 const cfg = loadConfig();
 const app = Fastify({ logger: true, bodyLimit: 20 * 1024 * 1024 });
@@ -76,6 +77,7 @@ registerFleetRoutes(app, registry, dbx, cfg);
 registerConnectionRoutes(app, dbx, cfg);
 registerReconRoutes(app, dbx, cfg, pgStore);
 registerPromptRoutes(app, registry);
+registerConfigRoutes(app, dbx, cfg);
 
 // serve built client (dist/public next to the bundled server)
 const here = dirname(fileURLToPath(import.meta.url));
