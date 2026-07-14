@@ -47,3 +47,11 @@ gates (spec approval, PR merge) plus the decommission confirmation gate from ADR
    pipeline, workflow) — nothing bespoke in the data path.
 3. `ctl.dataflow_spec` rows are tombstoned, never deleted (SDP drop-on-omission hazard).
 4. App state = Lakebase; data plane = Delta; recon read path = synced tables.
+
+## v3 suite (current)
+
+| Diagram | Where |
+|---|---|
+| L1 System Context · L2 App Containers · L3 Ingestion (workflow v3) · L3 Observability+Storage | [Lucid v3 suite](https://lucid.app/lucidchart/0aad657b-5c89-4f4e-b2d2-40595860ff97/edit) |
+| Mermaid mirrors (version-controlled, authoritative) | `docs/ARCHITECTURE_DIAGRAMS.md` |
+| Build & fix-loop sequence | Mermaid in ARCHITECTURE_DIAGRAMS.md §L3.2 (supersedes the v2 Lucid sequence) |
