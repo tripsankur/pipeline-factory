@@ -371,7 +371,7 @@ function BuilderStepper({ page, specId, onNav }: { page: string; specId: string 
                   alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700,
                   background: stateColor, color: "#fff",
                 }}>
-                  {failed && i === 2 ? "!" : complete ? "\u2713" : i + 1}
+                  {failed && i === 2 ? "!" : complete ? "\✓" : i + 1}
                 </span>
                 {st.label}
               </button>
@@ -379,7 +379,7 @@ function BuilderStepper({ page, specId, onNav }: { page: string; specId: string 
           );
         })}
         <span style={{ marginLeft: 14, fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
-          {spec ? `${spec.entity} \u00b7 ${status}` : "no spec selected \u2014 start with a contract"}
+          {spec ? `${spec.entity} \· ${status}` : "no spec selected \— start with a contract"}
         </span>
       </div>
     </div>

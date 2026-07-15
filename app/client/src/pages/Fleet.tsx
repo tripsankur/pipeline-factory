@@ -184,27 +184,27 @@ function HomeHero({ total, needsHuman }: { total: number; needsHuman: number }) 
           {total === 0
             ? "No pipelines yet. Bring an interface contract and the factory builds the rest."
             : `${total} governed ${total === 1 ? "entity" : "entities"} in production shape. ` +
-              (latest ? `Last run ${latest.trigger_type} \u00b7 ${latest.state} \u00b7 ${latest.bronze_count ?? "?"} rows.` : "") +
+              (latest ? `Last run ${latest.trigger_type} \· ${latest.state} \· ${latest.bronze_count ?? "?"} rows.` : "") +
               (needsHuman > 0 ? ` ${needsHuman} awaiting human attention.` : " Nothing needs attention.")}
         </div>
         <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "var(--pf-acc)" }}>{rows7d.length}</div>
-            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>runs \u00b7 7d</div>
+            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>runs \· 7d</div>
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: okRate === 100 ? "var(--pf-ok)" : "var(--pf-warn)" }}>{okRate === null ? "\u2014" : `${okRate}%`}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: okRate === 100 ? "var(--pf-ok)" : "var(--pf-warn)" }}>{okRate === null ? "\—" : `${okRate}%`}</div>
             <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>run success</div>
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{latest?.bronze_count?.toLocaleString() ?? "\u2014"}</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{latest?.bronze_count?.toLocaleString() ?? "\—"}</div>
             <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>rows in bronze</div>
           </div>
         </div>
       </div>
       <div style={{ width: 360 }}>
         <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
-          rows per run \u00b7 blue build \u00b7 green scheduled/manual
+          rows per run \· blue build \· green scheduled/manual
         </div>
         {pts.length === 0 ? (
           <div style={{ color: "var(--pf-tmut)", fontSize: "var(--fs-small)", paddingTop: 20 }}>no runs yet</div>
@@ -218,7 +218,7 @@ function HomeHero({ total, needsHuman }: { total: number; needsHuman: number }) 
                 <rect key={r.run_id + i} x={x} y={H - 2 - h} width={bw} height={h} rx={2}
                   fill={r.trigger_type === "build" ? "var(--pf-acc)" : "var(--pf-ok)"}
                   opacity={r.state === "succeeded" ? 0.85 : 0.3}>
-                  <title>{`${r.started_at?.slice(0, 16)} \u00b7 ${r.trigger_type} \u00b7 ${r.bronze_count ?? "?"} rows`}</title>
+                  <title>{`${r.started_at?.slice(0, 16)} \· ${r.trigger_type} \· ${r.bronze_count ?? "?"} rows`}</title>
                 </rect>
               );
             })}

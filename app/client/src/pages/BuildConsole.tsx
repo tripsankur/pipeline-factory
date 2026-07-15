@@ -146,7 +146,7 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
               <Mono>{b.started_at?.slice(0, 19)}</Mono>
               {b.pr_url && (
                 <a href={b.pr_url} target="_blank" rel="noreferrer" style={{ color: "var(--pf-acc)" }}>
-                  PR {"\u2197"}
+                  PR {"\↗"}
                 </a>
               )}
               <span style={{ color: "var(--pf-tmut)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 420 }}>
