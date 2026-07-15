@@ -24,11 +24,20 @@ def token() -> str:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("usage: python demo_reset.py <source>   e.g. python demo_reset.py sfdc")
+    args = [a for a in sys.argv[1:] if a != "--yes"]
+    assume_yes = "--yes" in sys.argv
+    if len(args) != 1:
+        print("usage: python demo_reset.py <source> [--yes]   e.g. python demo_reset.py sfdc --yes")
         sys.exit(1)
-    source = sys.argv[1]
-    answer = input(f"This deletes ALL factory assets for '{source}' (job, pipelines, tables, registry). Type 'reset {source}' to continue: ")
+    source = args[0]
+    if assume_yes:
+        answer = f"reset {source}"
+    else:
+        try:
+            answer = input(f"This deletes ALL factory assets for '{source}' (job, pipelines, tables, registry). Type 'reset {source}' to continue: ")
+        except EOFError:
+            print("non-interactive shell detected - rerun with --yes to confirm")
+            sys.exit(1)
     if answer != f"reset {source}":
         print("aborted")
         sys.exit(1)
