@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import type { IngestionRun } from "../api";
 import { api } from "../api";
 import { Card, Mono, StatusPill } from "../components/ui";
 
@@ -22,7 +24,7 @@ function ago(ts: string | null): string {
 export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => void }) {
   const q = useQuery({ queryKey: ["fleet"], queryFn: api.fleet, refetchInterval: 30_000 });
 
-  if (q.isLoading) return <p style={{ color: "var(--pf-tsec)" }}>Loading fleet…</p>;
+  if (q.isLoading) return <p style={{ color: "var(--pf-tsec)" }}>Loading overview…</p>;
   if (q.isError) return <p style={{ color: "var(--pf-bad)" }}>{String(q.error)}</p>;
 
   const { specs, kpis } = q.data!;
@@ -35,6 +37,7 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <HomeHero total={kpis.total} needsHuman={kpis.needs_human} />
       <div style={{ display: "flex", gap: 12 }}>
         {kpiDefs.map((k) => {
           const pctNum = k.of ? Math.round((k.value / Math.max(1, k.of)) * 100) : null;
@@ -68,7 +71,7 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         {specs.length === 0 ? (
-          <p style={{ padding: 24, color: "var(--pf-tsec)" }}>No specs yet — start with Contract intake.</p>
+          <p style={{ padding: 24, color: "var(--pf-tsec)" }}>No pipelines yet — open the Pipeline builder and drop in an interface contract.</p>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
             <thead>
@@ -150,5 +153,78 @@ export default function Fleet({ onOpenSpec }: { onOpenSpec: (specId: string) => 
         )}
       </Card>
     </div>
+  );
+}
+
+
+/** Landing hero: live pipeline health + rows trend + quick links. */
+function HomeHero({ total, needsHuman }: { total: number; needsHuman: number }) {
+  const [runs, setRuns] = useState<IngestionRun[]>([]);
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/recon/ingestion?limit=16")
+        .then((r) => (r.ok ? r.json() : { runs: [] }))
+        .then((j: { runs: IngestionRun[] }) => setRuns(j.runs ?? []))
+        .catch(() => setRuns([]));
+    load();
+    const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const latest = runs[0] ?? null;
+  const rows7d = runs.filter((r) => r.started_at && Date.now() - Date.parse(r.started_at) < 7 * 86_400_000);
+  const okRate = rows7d.length ? Math.round((rows7d.filter((r) => r.state === "succeeded").length / rows7d.length) * 100) : null;
+  const pts = [...runs].reverse().slice(-14);
+  const max = Math.max(...pts.map((r) => r.bronze_count ?? 0), 1);
+  const W = 340, H = 74;
+  return (
+    <Card style={{ display: "flex", gap: 24, alignItems: "stretch", padding: "18px 22px" }}>
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Ingestion overview</div>
+        <div style={{ fontSize: "var(--fs-small)", color: "var(--pf-tsec)", marginTop: 4, lineHeight: 1.6 }}>
+          {total === 0
+            ? "No pipelines yet. Bring an interface contract and the factory builds the rest."
+            : `${total} governed ${total === 1 ? "entity" : "entities"} in production shape. ` +
+              (latest ? `Last run ${latest.trigger_type} \u00b7 ${latest.state} \u00b7 ${latest.bronze_count ?? "?"} rows.` : "") +
+              (needsHuman > 0 ? ` ${needsHuman} awaiting human attention.` : " Nothing needs attention.")}
+        </div>
+        <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "var(--pf-acc)" }}>{rows7d.length}</div>
+            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>runs \u00b7 7d</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: okRate === 100 ? "var(--pf-ok)" : "var(--pf-warn)" }}>{okRate === null ? "\u2014" : `${okRate}%`}</div>
+            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>run success</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{latest?.bronze_count?.toLocaleString() ?? "\u2014"}</div>
+            <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>rows in bronze</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ width: 360 }}>
+        <div style={{ fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+          rows per run \u00b7 blue build \u00b7 green scheduled/manual
+        </div>
+        {pts.length === 0 ? (
+          <div style={{ color: "var(--pf-tmut)", fontSize: "var(--fs-small)", paddingTop: 20 }}>no runs yet</div>
+        ) : (
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
+            {pts.map((r, i) => {
+              const h = Math.max(3, ((r.bronze_count ?? 0) / max) * (H - 16));
+              const bw = Math.min(20, (W - 8) / pts.length - 4);
+              const x = 4 + i * ((W - 8) / pts.length);
+              return (
+                <rect key={r.run_id + i} x={x} y={H - 2 - h} width={bw} height={h} rx={2}
+                  fill={r.trigger_type === "build" ? "var(--pf-acc)" : "var(--pf-ok)"}
+                  opacity={r.state === "succeeded" ? 0.85 : 0.3}>
+                  <title>{`${r.started_at?.slice(0, 16)} \u00b7 ${r.trigger_type} \u00b7 ${r.bronze_count ?? "?"} rows`}</title>
+                </rect>
+              );
+            })}
+          </svg>
+        )}
+      </div>
+    </Card>
   );
 }

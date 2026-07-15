@@ -17,7 +17,7 @@ export interface NavItem {
 }
 
 export const MAIN_NAV: NavItem[] = [
-  { id: "fleet", label: "Fleet dashboard", icon: "M4 5h7v7H4zM13 5h7v4h-7zM13 13h7v6h-7zM4 15h7v4H4z", locked: false },
+  { id: "fleet", label: "Overview", icon: "M4 5h7v7H4zM13 5h7v4h-7zM13 13h7v6h-7zM4 15h7v4H4z", locked: false },
   { id: "builder", label: "Pipeline builder", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5", locked: false },
   { id: "lineage", label: "Lineage", icon: "M5 7a2 2 0 100-4 2 2 0 000 4zM5 21a2 2 0 100-4 2 2 0 000 4zM19 14a2 2 0 100-4 2 2 0 000 4zM7 5h6a4 4 0 014 4v1M7 19h6a4 4 0 004-4v-1", locked: false },
   { id: "recon", label: "Reconciliation", icon: "M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z", locked: false },
