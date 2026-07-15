@@ -35,6 +35,19 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
   const [result, setResult] = useState<{ pr?: { url: string; number: number }; error?: string } | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const [history, setHistory] = useState<
+    { run_id: string; status: string; pr_url: string | null; started_at: string; finished_at: string | null; detail: string | null }[]
+  >([]);
+
+  // restore context on (re-)entry: builds run server-side, so returning to this
+  // page shows the past runs even though the live stream is gone
+  useEffect(() => {
+    if (!selected) return;
+    fetch(`/api/specs/${selected}/builds`)
+      .then((r) => (r.ok ? r.json() : { builds: [] }))
+      .then((j: { builds: typeof history }) => setHistory(j.builds ?? []))
+      .catch(() => setHistory([]));
+  }, [selected, running]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -116,6 +129,33 @@ export default function BuildConsole({ specId }: { specId: string | null }) {
           </Button>
         </div>
       </Card>
+
+      {history.length > 0 && !running && (
+        <Card style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "9px 16px", borderBottom: "1px solid var(--pf-bd)", display: "flex", gap: 8, alignItems: "baseline" }}>
+            <strong style={{ fontSize: "var(--fs-h3)" }}>Previous builds</strong>
+            <span style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+              builds run server-side — leaving this page never cancels one
+            </span>
+          </div>
+          {history.slice(0, 5).map((b) => (
+            <div key={b.run_id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "7px 16px", borderTop: "1px solid var(--pf-bd)", fontSize: "var(--fs-small)" }}>
+              <span style={{ fontWeight: 600, color: b.status === "succeeded" ? "var(--pf-ok)" : b.status === "running" ? "var(--pf-run)" : "var(--pf-bad)" }}>
+                {b.status}
+              </span>
+              <Mono>{b.started_at?.slice(0, 19)}</Mono>
+              {b.pr_url && (
+                <a href={b.pr_url} target="_blank" rel="noreferrer" style={{ color: "var(--pf-acc)" }}>
+                  PR {"\u2197"}
+                </a>
+              )}
+              <span style={{ color: "var(--pf-tmut)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 420 }}>
+                {b.detail ?? ""}
+              </span>
+            </div>
+          ))}
+        </Card>
+      )}
 
       {/* stepper */}
       <Card style={{ padding: "18px 22px" }}>
