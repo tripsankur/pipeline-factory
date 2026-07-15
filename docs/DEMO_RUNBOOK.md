@@ -51,6 +51,11 @@ Open these tabs before starting: **(1)** the app, **(2)** Databricks Workflows l
 Checkpoint: app Fleet page EMPTY, Workflows has no `sfdc_workflow`, `bronze` schema has
 no `sfdc_account`, Salesforce shows 25 PF Demo accounts.
 
+**Validated reference numbers (2026-07-14 rehearsal):** build run bronze 38 = silver 38
+(25 demo + 13 org built-ins), recon 100/100/100; after `batch --count 5` + manual run:
+43 = 43, Δrows +5, recon 100%. Drift: 64 "added" events per run (70 live fields vs 6
+selected). Refresh tokens now self-heal (engine ≥1.2.3 writes rotations back).
+
 ---
 
 ## 2. The demo script
@@ -140,6 +145,10 @@ auditable PR — and an operations surface. The marginal cost of source #2 is a 
 | Symptom | Cause | Move |
 |---|---|---|
 | Build POST times out in UI | app proxy 60 s limit; build continues server-side | say "builds are async" — Build page polls; never re-click Build |
+| Build fails, rebuild returns 409 "must be approved" | failed builds set the spec to needs_human | re-approve on Mapping (no edits needed), then Build |
+| First ingest takes 10–15 min | first managed-connector sync provisions connector infra | narrate architecture (Act 1 material); later runs take ~2–3 min |
+| App 503 "Not Available" | trial apps stop when idle | `databricks bundle run pipeline_factory` (~1 min) — do this in the T-30 check |
+| Bronze counts exceed seeded rows | connector ingests ALL org Accounts (built-in samples + PF Demo) | expected; recon still exact — or delete org sample accounts once |
 | `connection sfdc_sample missing` in provision | consent gate not done (0.3) | show the message itself — *"designed human gate"* — then fall back to P3 contract |
 | Discovery fails `invalid_grant` | SF refresh token expired | `python scripts/demo/sf_auth.py` (browser, 30 s); tokens rotate — always latest in scope |
 | Recon/dashboard stale | sync tasks missing (0.5 not done) or quota | trigger sync pipelines manually in Pipelines UI; keep talking |
