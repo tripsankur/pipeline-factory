@@ -347,11 +347,15 @@ export async function waitPipelineUpdate(
 export async function collectDqFromEvents(
   dbx: DbxClient,
   pipelineId: string,
-): Promise<{ summary: string; failures: string[] }> {
+  /** expectation name -> action (warn|drop|fail). warn-level violations are
+   *  INFORMATIONAL by design — they must never veto a build. */
+  actions: Record<string, string> = {},
+): Promise<{ summary: string; failures: string[]; warnings: string[] }> {
   const p = await dbx.pipelineGet(pipelineId);
   const latestUpdate = p.latest_updates?.[0]?.update_id ?? null;
   const r = await dbx.pipelineEvents(pipelineId, 200);
   const failures: string[] = [];
+  const warnings: string[] = [];
   let passed = 0;
   let failedRows = 0;
   for (const e of r.events ?? []) {
@@ -363,9 +367,14 @@ export async function collectDqFromEvents(
     for (const ex of exps) {
       passed += ex.passed_records;
       failedRows += ex.failed_records;
-      if (ex.failed_records > 0) failures.push(`expectation ${ex.name}: ${ex.failed_records} failed records`);
+      if (ex.failed_records > 0) {
+        const action = actions[ex.name] ?? "fail";
+        const msg = `expectation ${ex.name} (${action}): ${ex.failed_records} failed records`;
+        if (action === "warn") warnings.push(msg);
+        else failures.push(msg);
+      }
     }
   }
-  const summary = `expectations: ${passed} passed rows · ${failedRows} failed rows`;
-  return { summary, failures };
+  const summary = `expectations: ${passed} passed rows · ${failedRows} flagged rows${warnings.length ? ` (${warnings.length} warn-level)` : ""}`;
+  return { summary, failures, warnings };
 }

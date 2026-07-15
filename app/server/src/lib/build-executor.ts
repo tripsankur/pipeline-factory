@@ -312,13 +312,16 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     return { ingestionId, etlId, workflowJobId };
   };
 
+  const dqActions = (): Record<string, string> =>
+    Object.fromEntries((spec?.expectations ?? []).map((e) => [e.name, e.action]));
+
   /** One workflow(ingest→etl) → dq → recon pass. */
   const attempt = async (assets: { ingestionId: string | null; etlId: string; workflowJobId: number }): Promise<AttemptOutcome> => {
     emit({ type: "step", step: "workflow_run", status: "running" });
     const wfRes = await runJobAndWait(dbx, assets.workflowJobId, { trigger_type: "build" }, log, "workflow");
     if (!wfRes.ok) {
       // enrich with ETL pipeline event errors — the real failure usually lives there
-      const dq = await collectDqFromEvents(dbx, assets.etlId).catch(() => ({ summary: "", failures: [] as string[] }));
+      const dq = await collectDqFromEvents(dbx, assets.etlId, dqActions()).catch(() => ({ summary: "", failures: [] as string[], warnings: [] as string[] }));
       emit({ type: "step", step: "workflow_run", status: "failed", meta: wfRes.state });
       return {
         ok: false,
@@ -329,7 +332,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
     emit({ type: "step", step: "workflow_run", status: "done", meta: `ingest → etl (${spec!.target.entity})` });
 
     emit({ type: "step", step: "dq", status: "running" });
-    const dq = await collectDqFromEvents(dbx, assets.etlId);
+    const dq = await collectDqFromEvents(dbx, assets.etlId, dqActions());
     const dqFailed = dq.failures.length > 0;
     emit({ type: "step", step: "dq", status: dqFailed ? "failed" : "done", meta: dq.summary });
     log(`${dqFailed ? "✗" : "✓"} dq: ${dq.summary}`);
