@@ -31,7 +31,6 @@ export interface SpecPromptInput {
   targetSystem: string;
   sourceEntity: string;
   targetEntity: string;
-  crosswalkTable: string;
   specId: string;
 }
 
@@ -60,7 +59,7 @@ Build the mapping spec with:
 - target: { system: "${input.targetSystem}", entity: "${input.targetEntity}" }
 - ingestion: choose mode from the contract (default snapshot); transport "lakeflow_connect";
   source_object: the contract entity name in the source system's naming convention.
-- crosswalk: table "${input.crosswalkTable}"; keys: the primary identifier column(s) mapped to their target form.
+- primary_keys: the business-key column(s) of the entity, each mapped source -> target form (drives SCD upserts and reconciliation).
 - columns: one entry per contract column, mapped to snake_case target names fitting the target system.
 - expectations: null checks on keys plus constraints the contract implies.`;
 }

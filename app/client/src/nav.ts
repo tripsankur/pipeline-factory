@@ -1,5 +1,14 @@
 /** Sidebar nav model — labels + SVG paths from the Claude Design source. */
 
+/** The guided build workflow: one nav entry, four stepped states. */
+export const BUILDER_STEPS = [
+  { id: "intake", label: "Contract" },
+  { id: "mapping", label: "Mapping" },
+  { id: "build", label: "Build & test" },
+  { id: "evidence", label: "Evidence & PR" },
+] as const;
+export const BUILDER_PAGES = BUILDER_STEPS.map((s) => s.id) as readonly string[];
+
 export interface NavItem {
   id: string;
   label: string;
@@ -9,10 +18,7 @@ export interface NavItem {
 
 export const MAIN_NAV: NavItem[] = [
   { id: "fleet", label: "Fleet dashboard", icon: "M4 5h7v7H4zM13 5h7v4h-7zM13 13h7v6h-7zM4 15h7v4H4z", locked: false },
-  { id: "intake", label: "Contract intake", icon: "M12 16V4m0 0L8 8m4-4l4 4M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2", locked: false },
-  { id: "mapping", label: "Mapping review", icon: "M4 7h6M4 12h6M4 17h6M14 7h6M14 12h6M14 17h6", locked: false },
-  { id: "build", label: "Build & test", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5", locked: false },
-  { id: "evidence", label: "PR evidence", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", locked: false },
+  { id: "builder", label: "Pipeline builder", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5", locked: false },
   { id: "lineage", label: "Lineage", icon: "M5 7a2 2 0 100-4 2 2 0 000 4zM5 21a2 2 0 100-4 2 2 0 000 4zM19 14a2 2 0 100-4 2 2 0 000 4zM7 5h6a4 4 0 014 4v1M7 19h6a4 4 0 004-4v-1", locked: false },
   { id: "recon", label: "Reconciliation", icon: "M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z", locked: false },
   { id: "history", label: "Spec history", icon: "M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z", locked: false },

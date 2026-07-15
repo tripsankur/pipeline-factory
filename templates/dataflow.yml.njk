@@ -19,8 +19,8 @@ select_columns:
 {% for c in row.select_columns %}
   - {{ c }}
 {% endfor %}
-crosswalk_keys: |
-{{ row.crosswalk_keys | jsonPretty | indent(2, true) }}
+primary_keys: |
+{{ row.primary_keys | jsonPretty | indent(2, true) }}
 column_transforms: |
 {{ row.column_transforms | jsonPretty | indent(2, true) }}
 data_quality_expectations: |

@@ -134,7 +134,7 @@ export function registryDdl(cfg: RegistryConfig): string[] {
       reader_config_options MAP<STRING,STRING>,
       target_details MAP<STRING,STRING>,
       select_columns ARRAY<STRING>,
-      crosswalk_keys STRING,
+      primary_keys STRING,
       column_transforms STRING,
       cdc_apply_changes STRING,
       data_quality_expectations STRING,

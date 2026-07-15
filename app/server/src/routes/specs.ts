@@ -39,7 +39,6 @@ const GenerateBody = z.object({
   targetSystem: z.string().min(1),
   sourceEntity: z.string().min(1),
   targetEntity: z.string().min(1),
-  crosswalkTable: z.string().min(1),
   /** structured-contract extras: authoritative over LLM output where present */
   mode: z.enum(["snapshot", "incremental", "cdc"]).optional(),
   cursorColumn: z.string().nullish(),
@@ -110,7 +109,6 @@ export function registerSpecRoutes(
         targetSystem: body.targetSystem,
         sourceEntity: body.sourceEntity,
         targetEntity: body.targetEntity,
-        crosswalkTable: body.crosswalkTable,
         specId,
       }),
       schema: SpecLlmSchema,

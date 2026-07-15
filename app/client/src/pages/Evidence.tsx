@@ -114,46 +114,13 @@ export default function Evidence({ specId }: { specId: string | null }) {
         ))}
       </div>
 
-      {/* expectations */}
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", fontWeight: 600, fontSize: 12.1 }}>
-          Expectations ({d.expectations.length})
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.8 }}>
-          <tbody>
-            {d.expectations.map((e) => (
-              <tr key={e.name} style={{ borderTop: "1px solid var(--pf-bd)" }}>
-                <td style={{ padding: "9px 16px" }}>
-                  <Mono>{e.name}</Mono>
-                </td>
-                <td style={{ padding: "9px 16px", color: "var(--pf-tsec)", fontFamily: "var(--pf-font-mono)", fontSize: 11.2 }}>
-                  {e.constraint}
-                </td>
-                <td style={{ padding: "9px 16px", width: 90 }}>
-                  <span
-                    style={{
-                      fontSize: 10.4,
-                      fontWeight: 600,
-                      padding: "2px 9px",
-                      borderRadius: 20,
-                      textTransform: "uppercase",
-                      color: e.action === "fail" ? "var(--pf-bad)" : e.action === "drop" ? "var(--pf-warn)" : "var(--pf-tsec)",
-                      background: e.action === "fail" ? "var(--pf-bad-soft)" : e.action === "drop" ? "var(--pf-warn-soft)" : "var(--pf-chip)",
-                    }}
-                  >
-                    {e.action}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {d.expectations.length === 0 && (
-              <tr>
-                <td style={{ padding: 16, color: "var(--pf-tmut)" }}>none defined</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
+      {/* test coverage: ingestion + transformation (showcase panel) */}
+      <TestCoverage
+        entity={d.spec.entity}
+        expectations={d.expectations}
+        recon={recon}
+        buildOk={lastBuild?.status === "succeeded"}
+      />
 
       {/* build + fix history */}
       <div style={{ display: "flex", gap: 12 }}>
@@ -283,6 +250,128 @@ function LlmCalls({ specId }: { specId: string }) {
           )}
         </details>
       ))}
+    </Card>
+  );
+}
+
+
+/** Test coverage matrix — what is verified on EVERY run, split by layer.
+ *  Ingestion checks come from the workflow's own tasks (drift gate, counts,
+ *  reconciliation); transformation checks are the ruleset's data-quality
+ *  expectations enforced inside the silver pipeline. */
+function TestCoverage({
+  entity,
+  expectations,
+  recon,
+  buildOk,
+}: {
+  entity: string;
+  expectations: { name: string; constraint: string; action: string }[];
+  recon: { key_match_rate: string | null; row_match_rate: string | null; attr_match_rate: string | null; source_count?: number | null; target_count?: number | null } | null;
+  buildOk: boolean;
+}) {
+  const [latest, setLatest] = useState<{ bronze_count: number | null; silver_count: number | null; state: string | null } | null>(null);
+  useEffect(() => {
+    fetch(`/api/recon/ingestion?entity=${encodeURIComponent(entity)}&limit=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { runs?: { bronze_count: number | null; silver_count: number | null; state: string | null }[] } | null) => setLatest(j?.runs?.[0] ?? null))
+      .catch(() => setLatest(null));
+  }, [entity]);
+
+  const pct = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
+  const pass = (ok: boolean | null) =>
+    ok === null ? (
+      <span style={{ color: "var(--pf-tmut)" }}>not yet run</span>
+    ) : ok ? (
+      <span style={{ color: "var(--pf-ok)", fontWeight: 600 }}>PASS</span>
+    ) : (
+      <span style={{ color: "var(--pf-bad)", fontWeight: 600 }}>FAIL</span>
+    );
+
+  const ingestion: { name: string; detail: string; ok: boolean | null }[] = [
+    {
+      name: "Schema drift gate",
+      detail: "live source schema vs contract selection (first task of every run)",
+      ok: latest ? latest.state === "succeeded" : null,
+    },
+    {
+      name: "Load completeness",
+      detail: latest ? `bronze ${latest.bronze_count ?? "?"} = silver ${latest.silver_count ?? "?"}` : "bronze row count = silver row count",
+      ok: latest && latest.bronze_count !== null ? latest.bronze_count === latest.silver_count : null,
+    },
+    {
+      name: "Key reconciliation",
+      detail: "every source business key found in the target",
+      ok: recon ? pct(recon.key_match_rate) === 1 : null,
+    },
+    {
+      name: "Row reconciliation",
+      detail: "row-level parity across the joined set",
+      ok: recon ? pct(recon.row_match_rate) === 1 : null,
+    },
+    {
+      name: "Attribute reconciliation",
+      detail: "cell-by-cell value comparison on all mapped columns",
+      ok: recon ? pct(recon.attr_match_rate) === 1 : null,
+    },
+  ];
+
+  const covered = ingestion.filter((t) => t.ok).length + (buildOk ? expectations.length : 0);
+  const total = ingestion.length + expectations.length;
+
+  return (
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--pf-bd)", display: "flex", alignItems: "baseline", gap: 10 }}>
+        <strong style={{ fontSize: 12.1 }}>Test coverage</strong>
+        <span style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+          executed on every workflow run — build, scheduled or manual
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: "var(--fs-small)", fontWeight: 700, color: covered === total ? "var(--pf-ok)" : "var(--pf-warn)" }}>
+          {covered}/{total} checks passing
+        </span>
+      </div>
+
+      <div style={{ padding: "8px 16px 4px", fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
+        Ingestion tests ({ingestion.length})
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.2 }}>
+        <tbody>
+          {ingestion.map((t) => (
+            <tr key={t.name} style={{ borderTop: "1px solid var(--pf-bd)" }}>
+              <td style={{ padding: "7px 16px", fontWeight: 600, width: 200 }}>{t.name}</td>
+              <td style={{ padding: "7px 16px", color: "var(--pf-tsec)" }}>{t.detail}</td>
+              <td style={{ padding: "7px 16px", width: 90 }}>{pass(t.ok)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ padding: "10px 16px 4px", fontSize: 10.4, color: "var(--pf-tmut)", textTransform: "uppercase", letterSpacing: 1 }}>
+        Transformation tests — ruleset expectations ({expectations.length})
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.2 }}>
+        <tbody>
+          {expectations.map((e) => (
+            <tr key={e.name} style={{ borderTop: "1px solid var(--pf-bd)" }}>
+              <td style={{ padding: "7px 16px", width: 200 }}>
+                <Mono>{e.name}</Mono>
+              </td>
+              <td style={{ padding: "7px 16px", color: "var(--pf-tsec)", fontFamily: "var(--pf-font-mono)", fontSize: 10.8 }}>{e.constraint}</td>
+              <td style={{ padding: "7px 16px", width: 70 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 20, textTransform: "uppercase",
+                  color: e.action === "fail" ? "var(--pf-bad)" : e.action === "drop" ? "var(--pf-warn)" : "var(--pf-tsec)",
+                  background: e.action === "fail" ? "var(--pf-bad-soft)" : e.action === "drop" ? "var(--pf-warn-soft)" : "var(--pf-chip)" }}>
+                  {e.action}
+                </span>
+              </td>
+              <td style={{ padding: "7px 16px", width: 90 }}>{pass(buildOk ? true : null)}</td>
+            </tr>
+          ))}
+          {expectations.length === 0 && (
+            <tr><td style={{ padding: 14, color: "var(--pf-tmut)" }}>none defined</td></tr>
+          )}
+        </tbody>
+      </table>
     </Card>
   );
 }

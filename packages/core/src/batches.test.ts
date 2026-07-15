@@ -10,7 +10,7 @@ const mk = (entity: string, system: string, mode: "snapshot" | "incremental" | "
     source: { system, entity: `workspace.bronze.${system}_${entity}` },
     target: { system: "sf", entity: `workspace.silver.${entity}` },
     ingestion: { transport: "lakeflow_connect", source_object: entity.toUpperCase(), mode, cursor_column: null },
-    crosswalk: { keys: [{ source: "id", target: "id" }], table: "workspace.silver.xw" },
+    primary_keys: [{ source: "id", target: "id" }],
     columns: [{ name: "id", target: "id", type: "STRING", confidence: 1, rationale: "" }],
   });
 

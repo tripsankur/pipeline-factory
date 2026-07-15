@@ -38,7 +38,7 @@ export interface Spec {
     mode: string;
     cursor_column: string | null;
   };
-  crosswalk: { keys: { source: string; target: string }[]; table: string };
+  primary_keys: { source: string; target: string }[];
   columns: ColumnMapping[];
   expectations: { name: string; constraint: string; action: string }[];
   evidence: Record<string, unknown>;
@@ -156,7 +156,6 @@ export interface ParsedTableContract extends ParsedContract {
   suggested: {
     sourceEntity: string;
     targetEntity: string;
-    crosswalkTable: string;
     sourceSystem: string;
     targetSystem: string;
   };
@@ -247,7 +246,6 @@ export const api = {
     targetSystem: string;
     sourceEntity: string;
     targetEntity: string;
-    crosswalkTable: string;
     mode?: string;
     cursorColumn?: string | null;
     audit?: Record<string, unknown>;

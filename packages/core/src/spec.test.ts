@@ -13,10 +13,7 @@ const validSpec: Spec = SpecSchema.parse({
     mode: "snapshot",
     cursor_column: null,
   },
-  crosswalk: {
-    keys: [{ source: "account_id", target: "sf_account_id" }],
-    table: "silver.galileo.crosswalk_account",
-  },
+  primary_keys: [{ source: "account_id", target: "sf_account_id" }],
   columns: [
     {
       name: "account_id",
@@ -25,7 +22,7 @@ const validSpec: Spec = SpecSchema.parse({
       transform: null,
       value_map: [],
       confidence: 0.98,
-      rationale: "exact name match via crosswalk",
+      rationale: "exact name match on the business key",
       compare: { enabled: true, normalize: null, tolerance: null },
     },
     {

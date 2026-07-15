@@ -25,7 +25,6 @@ const PreviewBody = z.object({
   targetSystem: z.string().min(1),
   sourceEntity: z.string().min(1),
   targetEntity: z.string().min(1),
-  crosswalkTable: z.string().min(1),
 });
 
 export function registerPromptRoutes(app: FastifyInstance, registry: RegistryStore): void {
@@ -57,7 +56,6 @@ export function registerPromptRoutes(app: FastifyInstance, registry: RegistrySto
       targetSystem: body.data.targetSystem,
       sourceEntity: body.data.sourceEntity,
       targetEntity: body.data.targetEntity,
-      crosswalkTable: body.data.crosswalkTable,
       specId: "spec-<generated-at-submit>",
     });
     return { system: SPEC_SYSTEM_PROMPT, user };

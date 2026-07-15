@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MAIN_NAV, LOCKED_NAV, type NavItem } from "./nav";
+import { MAIN_NAV, LOCKED_NAV, BUILDER_STEPS, BUILDER_PAGES, type NavItem } from "./nav";
 import { api } from "./api";
 import Fleet from "./pages/Fleet";
 import Intake from "./pages/Intake";
@@ -45,7 +45,7 @@ export default function App() {
     <button
       key={item.id}
       className="pf-nav-btn"
-      onClick={() => (item.locked ? openLocked(item.id) : setPage(item.id))}
+      onClick={() => (item.locked ? openLocked(item.id) : setPage(item.id === "builder" ? "intake" : item.id))}
       style={{
         display: "flex",
         alignItems: "center",
@@ -107,50 +107,29 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <header className="pf-ribbon">
+          <div className="pf-ribbon-brand">
+            <div className="pf-ribbon-logo">PF</div>
+            <span style={{ fontWeight: 600 }}>Pipeline Factory</span>
+            <span className="pf-ribbon-crumb">/ {BUILDER_PAGES.includes(page) ? "Pipeline builder" : ([...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page)}</span>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+            <UserChip />
+          </div>
+        </header>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <aside
+          className="pf-sidenav"
           style={{
-            width: 250,
+            width: 232,
             flexShrink: 0,
-            background: "var(--pf-surf)",
-            borderRight: "1px solid var(--pf-bd)",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 11,
-              padding: "19px 20px 17px",
-              borderBottom: "1px solid var(--pf-bd)",
-            }}
-          >
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "var(--pf-acc)",
-                color: "var(--pf-acc-tx)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: 13.2,
-              }}
-            >
-              PF
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 12.8 }}>Pipeline Factory</div>
-              <div style={{ fontSize: 10.4, color: "var(--pf-tmut)" }}>ingestion builder</div>
-            </div>
-          </div>
-
           <nav style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2, flex: 1, overflow: "auto" }}>
-            {MAIN_NAV.map((item) => navBtn(item, page === item.id, item.id === "mapping" ? awaitingReview : undefined))}
+            {MAIN_NAV.map((item) => navBtn(item, item.id === "builder" ? BUILDER_PAGES.includes(page) : page === item.id, item.id === "builder" ? awaitingReview : undefined))}
             <div
               style={{
                 margin: "14px 14px 6px",
@@ -212,14 +191,13 @@ export default function App() {
         </aside>
 
         <main key={page} className="pf-page" style={{ flex: 1, overflow: "auto", padding: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", margin: "0 0 18px" }}>
-            <h1 style={{ fontSize: 15.5, margin: 0 }}>
+          {BUILDER_PAGES.includes(page) ? (
+            <BuilderStepper page={page} specId={activeSpecId} onNav={setPage} />
+          ) : (
+            <h1 style={{ fontSize: 15.5, margin: "0 0 18px" }}>
               {[...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page.replaceAll("_", " ")}
             </h1>
-            <div style={{ marginLeft: "auto" }}>
-              <UserChip />
-            </div>
-          </div>
+          )}
 
           {page === "fleet" && <Fleet onOpenSpec={(id) => openSpec(id, "mapping")} />}
           {page === "intake" && <Intake onSpecCreated={(id) => openSpec(id, "mapping")} />}
@@ -233,6 +211,7 @@ export default function App() {
           {page === "docs" && <Docs />}
           {LOCKED_NAV.some((n) => n.id === page) && <ComingSoon id={page} />}
         </main>
+      </div>
       </div>
     </ToastProvider>
   );
@@ -335,5 +314,70 @@ function UserChip() {
         workspace {"↗"}
       </a>
     </span>
+  );
+}
+
+
+/** The build path as a stateful workflow: Contract -> Mapping -> Build -> Evidence.
+ *  Step states derive from the active spec's lifecycle status. */
+function BuilderStepper({ page, specId, onNav }: { page: string; specId: string | null; onNav: (p: string) => void }) {
+  const specs = useQuery({
+    queryKey: ["specs-stepper"],
+    queryFn: async () => {
+      const r = await fetch("/api/specs");
+      if (!r.ok) throw new Error(await r.text());
+      return (await r.json()) as { specs: { spec_id: string; status: string; entity: string }[] };
+    },
+    refetchInterval: 15_000,
+  });
+  const spec = specs.data?.specs.find((x) => x.spec_id === specId) ?? null;
+  const status = spec?.status ?? null;
+  const progress = !spec
+    ? 0
+    : ["draft", "generated", "awaiting_review"].includes(status ?? "")
+      ? 1
+      : ["approved", "building", "needs_human"].includes(status ?? "")
+        ? 2
+        : 3;
+  const failed = status === "needs_human";
+  return (
+    <div style={{ margin: "0 0 18px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+        {BUILDER_STEPS.map((st, i) => {
+          const current = page === st.id;
+          const complete = i < progress;
+          const stateColor = failed && i === 2 ? "var(--pf-bad)" : complete ? "var(--pf-ok)" : current ? "var(--pf-acc)" : "var(--pf-tmut)";
+          return (
+            <div key={st.id} style={{ display: "flex", alignItems: "center" }}>
+              {i > 0 && <div style={{ width: 34, height: 2, background: i <= progress ? "var(--pf-ok)" : "var(--pf-bd2)", margin: "0 6px" }} />}
+              <button
+                onClick={() => onNav(st.id)}
+                className="pf-step"
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "6px 12px",
+                  borderRadius: 20, cursor: "pointer", fontFamily: "var(--pf-font-sans)",
+                  border: `1px solid ${current ? "var(--pf-acc)" : "var(--pf-bd2)"}`,
+                  background: current ? "var(--pf-acc-soft)" : "var(--pf-surf)",
+                  color: current ? "var(--pf-tpri)" : "var(--pf-tsec)",
+                  fontWeight: current ? 600 : 500, fontSize: "var(--fs-small)",
+                }}
+              >
+                <span style={{
+                  width: 18, height: 18, borderRadius: "50%", display: "inline-flex",
+                  alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700,
+                  background: stateColor, color: "#fff",
+                }}>
+                  {failed && i === 2 ? "!" : complete ? "\u2713" : i + 1}
+                </span>
+                {st.label}
+              </button>
+            </div>
+          );
+        })}
+        <span style={{ marginLeft: 14, fontSize: "var(--fs-micro)", color: "var(--pf-tmut)" }}>
+          {spec ? `${spec.entity} \u00b7 ${status}` : "no spec selected \u2014 start with a contract"}
+        </span>
+      </div>
+    </div>
   );
 }

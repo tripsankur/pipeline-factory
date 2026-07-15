@@ -22,7 +22,6 @@ export interface ParsedTableContract extends ParsedContract {
   suggested: {
     sourceEntity: string;
     targetEntity: string;
-    crosswalkTable: string;
     sourceSystem: string;
     targetSystem: string;
   };
@@ -81,7 +80,6 @@ export class StructuredContractAdapter {
       suggested: {
         sourceEntity: `${cat}.${c.target.bronze_schema}.${c.source.system}_${t.name}`,
         targetEntity: `${cat}.${c.target.silver_schema}.${t.name}`,
-        crosswalkTable: `${cat}.${c.target.silver_schema}.crosswalk_${c.source.system}_${t.name}`,
         sourceSystem: c.source.system,
         targetSystem: c.target.system || "target",
       },

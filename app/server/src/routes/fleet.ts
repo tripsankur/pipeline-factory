@@ -102,7 +102,7 @@ export function registerFleetRoutes(
   /**
    * Lineage — the single source of truth for what flows from where.
    * Derived live from the registry's current spec versions: source system →
-   * ingestion batch (one per source) → bronze table → silver stitch (crosswalk)
+   * ingestion batch (one per source) → bronze table → silver transform (rulesets)
    * → target table.
    */
   app.get("/api/lineage", async () => {
@@ -125,7 +125,7 @@ export function registerFleetRoutes(
         source_system: s.source.system,
         source_object: s.ingestion.source_object,
         bronze_table: s.source.entity,
-        crosswalk_table: s.crosswalk.table,
+        primary_keys: s.primary_keys.map((k) => k.target),
         target_table: s.target.entity,
         target_system: s.target.system,
         mode: s.ingestion.mode,

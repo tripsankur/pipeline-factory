@@ -51,7 +51,7 @@ export function registerOpsRoutes(
     for (const r of rows) {
       try {
         const t = JSON.parse(r.target_details ?? "{}") as Record<string, string>;
-        for (const k of ["bronze_table", "silver_table", "crosswalk_table"]) if (t[k]) tables.add(t[k]!);
+        for (const k of ["bronze_table", "silver_table"]) if (t[k]) tables.add(t[k]!);
       } catch {
         /* ignore malformed rows */
       }
@@ -226,7 +226,7 @@ export function registerOpsRoutes(
         { node: "ingestion_pipeline", name: `brnz_${source}_ingest`, kind: "lakeflow_connect" },
         { node: "bronze", table: tgt.bronze_table ?? null },
         { node: "etl_pipeline", name: `slvr_${source}_etl`, kind: "sdp_engine" },
-        { node: "silver", table: tgt.silver_table ?? null, crosswalk: tgt.crosswalk_table ?? null },
+        { node: "silver", table: tgt.silver_table ?? null },
         { node: "workflow", name: `${source}_workflow` },
       ],
       columns: JSON.parse(r.select_columns ?? "[]") as string[],

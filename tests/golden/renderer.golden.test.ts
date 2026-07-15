@@ -90,6 +90,6 @@ describe("specToDataflowRow (metadata mapping, ADR-008/010)", () => {
   it("derives the source object descriptor", () => {
     const o = specSourceObject(goldenSpec);
     expect(o.include_columns).toEqual(goldenSpec.columns.map((c) => c.name));
-    expect(o.primary_keys).toEqual(goldenSpec.crosswalk.keys.map((k) => k.source));
+    expect(o.primary_keys).toEqual(goldenSpec.primary_keys.map((k) => k.source));
   });
 });

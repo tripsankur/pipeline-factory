@@ -58,7 +58,7 @@ export const ContractTableSchema = z.object({
   /** source-native object/table name when it differs from the slug (e.g. Salesforce "Account") */
   source_object: z.string().optional(),
   description: z.string().default(""),
-  /** MANDATORY: at least one primary-key column (drives crosswalk + recon keys) */
+  /** MANDATORY: at least one primary-key column (drives connector upserts + recon keys) */
   primary_key: z.array(z.string().min(1)).min(1),
   /** override the contract default; snapshot|incremental ride the batch, cdc rides nrt */
   mode: z.enum(["snapshot", "incremental", "cdc"]).optional(),

@@ -15,7 +15,6 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
     targetSystem: "salesforce_comms",
     sourceEntity: "",
     targetEntity: "",
-    crosswalkTable: "",
   });
 
   const parse = useMutation({
@@ -32,7 +31,6 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
         ...f,
         sourceEntity: f.sourceEntity || `workspace.bronze.${r.contract.entity}`,
         targetEntity: f.targetEntity || `workspace.silver.${r.contract.entity}`,
-        crosswalkTable: f.crosswalkTable || `workspace.silver.crosswalk_${r.contract.entity}`,
       }));
     },
   });
@@ -51,7 +49,6 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
         targetSystem: t.suggested.targetSystem,
         sourceEntity: t.suggested.sourceEntity,
         targetEntity: t.suggested.targetEntity,
-        crosswalkTable: t.suggested.crosswalkTable,
         mode: t.mode,
         cursorColumn: t.cursorColumn,
         audit: structured!.audit,
@@ -313,7 +310,6 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
                 ["targetSystem", "Target system"],
                 ["sourceEntity", "Source table (3-part)"],
                 ["targetEntity", "Target table (3-part)"],
-                ["crosswalkTable", "Crosswalk table (3-part)"],
               ] as const
             ).map(([key, label]) => (
               <label key={key} style={{ fontSize: 11.2, color: "var(--pf-tsec)" }}>
@@ -362,7 +358,7 @@ function PromptPanel({
   form,
 }: {
   contract: ParsedContract;
-  form: { sourceSystem: string; targetSystem: string; sourceEntity: string; targetEntity: string; crosswalkTable: string };
+  form: { sourceSystem: string; targetSystem: string; sourceEntity: string; targetEntity: string };
 }) {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<{ system: string; user: string } | null>(null);

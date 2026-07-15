@@ -27,7 +27,6 @@ interface LineageEntity {
   source_system: string;
   source_object: string;
   bronze_table: string;
-  crosswalk_table: string;
   target_table: string;
   target_system: string;
   mode: string;
@@ -216,7 +215,7 @@ function SourceGraph({
               onClick: () => onOpenSpec(e.spec_id),
             })}
             {edge(COLS[2].x + COLS[2].w, midY(i), COLS[3].x, midY(i), `s-${i}`, "var(--pf-violet)")}
-            {node(3, rowY(i), "silver_stitch", e.crosswalk_table.split(".").pop() ?? "crosswalk", {
+            {node(3, rowY(i), "silver_transform", "ruleset: transforms + DQ", {
               mono: true,
               pill: `${e.column_count} cols`,
               onClick: () => onOpenSpec(e.spec_id),

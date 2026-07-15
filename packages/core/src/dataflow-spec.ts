@@ -21,7 +21,7 @@ export interface DataflowSpecRow {
   reader_config_options: Record<string, string>;
   target_details: Record<string, string>;
   select_columns: string[];
-  crosswalk_keys: string; // JSON [{source, target}]
+  primary_keys: string; // JSON [{source, target}]
   column_transforms: string; // JSON [{name, target, type, transform, compare}]
   cdc_apply_changes: string | null; // JSON {keys, sequence_by, scd_type} | null
   data_quality_expectations: string; // JSON {expect, expect_or_drop, expect_or_fail}
@@ -84,7 +84,7 @@ export function specToDataflowRow(spec: Spec, opts: DataflowRowOptions = {}): Da
   const cdc =
     spec.ingestion.mode === "cdc"
       ? JSON.stringify({
-          keys: spec.crosswalk.keys.map((k) => k.source),
+          keys: spec.primary_keys.map((k) => k.source),
           sequence_by: spec.ingestion.cursor_column,
           scd_type: 1,
         })
@@ -106,11 +106,10 @@ export function specToDataflowRow(spec: Spec, opts: DataflowRowOptions = {}): Da
     target_details: {
       bronze_table: spec.source.entity,
       silver_table: spec.target.entity,
-      crosswalk_table: spec.crosswalk.table,
       batch: batchId(spec.source.system, ingestMode(spec)),
     },
     select_columns: spec.columns.map((c) => c.name),
-    crosswalk_keys: JSON.stringify(spec.crosswalk.keys),
+    primary_keys: JSON.stringify(spec.primary_keys),
     column_transforms: JSON.stringify(transforms),
     cdc_apply_changes: cdc,
     data_quality_expectations: JSON.stringify(dq),
@@ -150,7 +149,7 @@ export function dataflowSpecMergeSql(cfg: RegistryConfig, r: DataflowSpecRow): s
     `reader_config_options = ${sqlMap(r.reader_config_options)}`,
     `target_details = ${sqlMap(r.target_details)}`,
     `select_columns = ${sqlArr(r.select_columns)}`,
-    `crosswalk_keys = ${sqlStr(r.crosswalk_keys)}`,
+    `primary_keys = ${sqlStr(r.primary_keys)}`,
     `column_transforms = ${sqlStr(r.column_transforms)}`,
     `cdc_apply_changes = ${sqlStr(r.cdc_apply_changes)}`,
     `data_quality_expectations = ${sqlStr(r.data_quality_expectations)}`,
@@ -168,13 +167,13 @@ WHEN MATCHED THEN UPDATE SET
 WHEN NOT MATCHED THEN INSERT (
   dataflow_id, dataflow_group, entity, spec_version, source_format,
   source_details, reader_config_options, target_details, select_columns,
-  crosswalk_keys, column_transforms, cdc_apply_changes, data_quality_expectations,
+  primary_keys, column_transforms, cdc_apply_changes, data_quality_expectations,
   table_properties, cluster_by, is_active, framework_min_version,
   created_at, updated_at, created_by
 ) VALUES (
   ${sqlStr(r.dataflow_id)}, ${sqlStr(r.dataflow_group)}, ${sqlStr(r.entity)}, ${r.spec_version}, ${sqlStr(r.source_format)},
   ${sqlMap(r.source_details)}, ${sqlMap(r.reader_config_options)}, ${sqlMap(r.target_details)}, ${sqlArr(r.select_columns)},
-  ${sqlStr(r.crosswalk_keys)}, ${sqlStr(r.column_transforms)}, ${sqlStr(r.cdc_apply_changes)}, ${sqlStr(r.data_quality_expectations)},
+  ${sqlStr(r.primary_keys)}, ${sqlStr(r.column_transforms)}, ${sqlStr(r.cdc_apply_changes)}, ${sqlStr(r.data_quality_expectations)},
   ${sqlMap(r.table_properties)}, ${sqlArr(r.cluster_by)}, ${r.is_active}, ${sqlStr(r.framework_min_version)},
   current_timestamp(), current_timestamp(), ${sqlStr(r.created_by)}
 )`;

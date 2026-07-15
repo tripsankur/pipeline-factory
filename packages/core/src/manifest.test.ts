@@ -10,7 +10,7 @@ const spec = SpecSchema.parse({
   source: { system: "aldm", entity: "c.b.orders_src" },
   target: { system: "sf", entity: "c.s.orders" },
   ingestion: { transport: "lakeflow_connect", source_object: "ORDERS", mode: "snapshot", cursor_column: null },
-  crosswalk: { keys: [{ source: "id", target: "sf_id" }], table: "c.s.xw" },
+  primary_keys: [{ source: "id", target: "sf_id" }],
   columns: [
     { name: "id", target: "sf_id", type: "STRING", confidence: 0.95, rationale: "key" },
     { name: "amt", target: "amount", type: "DOUBLE", transform: "CAST(src.`amt` AS DOUBLE)", confidence: 0.6, rationale: "guessed unit" },

@@ -80,7 +80,7 @@ export function specSourceObject(spec: Spec): SourceObject {
     destination_catalog: dest.catalog,
     destination_schema: dest.schema,
     destination_table: dest.table,
-    primary_keys: spec.crosswalk.keys.map((k) => k.source),
+    primary_keys: spec.primary_keys.map((k) => k.source),
     include_columns: withConnectorRequiredColumns(
       spec.source.system,
       spec.columns.map((c) => c.name),

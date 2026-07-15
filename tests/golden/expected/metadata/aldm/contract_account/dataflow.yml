@@ -15,13 +15,12 @@ source_details:
 target_details:
   bronze_table: "workspace.bronze.aldm_contract_account"
   silver_table: "workspace.silver.contract_account"
-  crosswalk_table: "workspace.silver.crosswalk_account"
   batch: "brnz_aldm_batch"
 select_columns:
   - account_id
   - status_cd
   - balance_amt
-crosswalk_keys: |
+primary_keys: |
   [
     {
       "source": "account_id",

@@ -14,17 +14,14 @@ export const goldenSpec: Spec = SpecSchema.parse({
     mode: "incremental",
     cursor_column: "updated_ts",
   },
-  crosswalk: {
-    keys: [{ source: "account_id", target: "sf_account_id" }],
-    table: "workspace.silver.crosswalk_account",
-  },
+  primary_keys: [{ source: "account_id", target: "sf_account_id" }],
   columns: [
     {
       name: "account_id",
       target: "sf_account_id",
       type: "STRING",
       confidence: 0.98,
-      rationale: "exact key match via crosswalk",
+      rationale: "exact key match on the business key",
     },
     {
       name: "status_cd",

@@ -76,13 +76,11 @@ export const IngestionSchema = z.object({
   cursor_column: z.string().nullable().default(null),
 });
 
-export const CrosswalkSchema = z.object({
-  /** join keys: source key column -> target key column */
-  keys: z
-    .array(z.object({ source: z.string().min(1), target: z.string().min(1) }))
-    .min(1),
-  /** crosswalk table (three-part name) used for silver stitching */
-  table: z.string().min(1),
+/** Business key of the entity: source key column -> target key column.
+ *  Drives connector primary_keys (SCD upserts) and reconciliation joins. */
+export const PrimaryKeySchema = z.object({
+  source: z.string().min(1),
+  target: z.string().min(1),
 });
 
 export const EndpointSchema = z.object({
@@ -99,7 +97,7 @@ export const SpecSchema = z.object({
   source: EndpointSchema,
   target: EndpointSchema,
   ingestion: IngestionSchema,
-  crosswalk: CrosswalkSchema,
+  primary_keys: z.array(PrimaryKeySchema).min(1),
   columns: z.array(ColumnMappingSchema).min(1),
   expectations: z
     .array(ExpectationSchema)

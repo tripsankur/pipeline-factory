@@ -234,7 +234,7 @@ tables:
             <li>ONE scheduled batch per source system: <Mono>brnz_{"{source}"}_batch</Mono> — all its tables ride together.</li>
             <li>CDC/streaming entities ride the source's near-real-time group: <Mono>brnz_{"{source}"}_nrt</Mono>.</li>
             <li>Flow naming: <Mono>brnz_{"{source}"}_{"{entity}"}_{"{mode}"}</Mono>, e.g. <Mono>brnz_aldm_contract_account_batch</Mono>.</li>
-            <li>Bronze tables: <Mono>{"{catalog}"}.bronze.{"{source}"}_{"{table}"}</Mono>; silver targets stitched via the crosswalk join.</li>
+            <li>Bronze tables: <Mono>{"{catalog}"}.bronze.{"{source}"}_{"{table}"}</Mono>; silver targets conformed by the ruleset transforms + data-quality expectations.</li>
             <li>Every generated asset is tagged: <Mono>generated_by</Mono>, <Mono>spec_id</Mono>, <Mono>spec_version</Mono> (headers, TBLPROPERTIES, commits).</li>
           </ul>
         </Section>

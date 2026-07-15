@@ -195,7 +195,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
    *  and the managed ingestion pipeline's objects list). */
   const collectSourceObjects = async (): Promise<SourceObject[]> => {
     const rows = await dbx.sqlRows(
-      `SELECT entity, source_details, target_details, select_columns, crosswalk_keys
+      `SELECT entity, source_details, target_details, select_columns, primary_keys
        FROM ${fq(cfg.registry, "dataflow_spec")}
        WHERE dataflow_group = ${lit(source)} AND is_active = true AND entity != ${lit(spec!.entity)}`,
       warehouse,
@@ -206,7 +206,7 @@ export async function executeBuild(deps: BuildDeps, specId: string, emit: BuildE
         const src = JSON.parse(r.source_details ?? "{}") as Record<string, string>;
         const tgt = JSON.parse(r.target_details ?? "{}") as Record<string, string>;
         const cols = JSON.parse(r.select_columns ?? "[]") as string[];
-        const keys = JSON.parse(r.crosswalk_keys ?? "[]") as { source: string }[];
+        const keys = JSON.parse(r.primary_keys ?? "[]") as { source: string }[];
         const [dc, ds, dt] = (tgt.bronze_table ?? "..").split(".");
         siblings.push({
           entity: r.entity as string,

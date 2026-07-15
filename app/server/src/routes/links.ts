@@ -54,7 +54,7 @@ export function registerLinkRoutes(app: FastifyInstance, dbx: DbxClient, cfg: Ap
     for (const r of rows) {
       try {
         const t = JSON.parse(r.target_details ?? "{}") as Record<string, string>;
-        for (const k of ["bronze_table", "silver_table", "crosswalk_table"]) if (t[k]) tables.add(t[k]!);
+        for (const k of ["bronze_table", "silver_table"]) if (t[k]) tables.add(t[k]!);
       } catch {
         /* skip malformed */
       }
