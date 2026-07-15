@@ -12,7 +12,9 @@ import { identityFrom } from "../lib/identity.js";
  */
 
 export function registerLinkRoutes(app: FastifyInstance, dbx: DbxClient, cfg: AppConfig): void {
-  const host = cfg.DATABRICKS_HOST.replace(/\/$/, "");
+  // DATABRICKS_HOST may arrive with or without a scheme — normalize to https://
+  const raw = cfg.DATABRICKS_HOST.replace(/\/$/, "");
+  const host = raw.startsWith("http") ? raw : `https://${raw}`;
 
   app.get("/api/me", async (req) => {
     const user = identityFrom(req, cfg.PF_DEV_USER_EMAIL);
