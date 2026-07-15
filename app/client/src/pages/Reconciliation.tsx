@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type IngestionRun, type ReconDiff, type ReconRun, type ReconSummary } from "../api";
 import { Card, Mono } from "../components/ui";
+import { DbxLinks, RunLink } from "../components/DbxLinks";
 
 /** Reconciliation dashboard — fleet-wide loaded counts + match rates vs
  *  thresholds, per-entity trends, drill-down to record diffs (ask #9). */
@@ -288,6 +289,7 @@ function IngestionPanel() {
     return () => clearInterval(t);
   }, []);
   if (!runs || runs.length === 0) return null;
+  const firstSource = runs[0]?.source ?? null;
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--pf-bd)", display: "flex", gap: 8, alignItems: "baseline" }}>
@@ -296,10 +298,11 @@ function IngestionPanel() {
           every workflow execution — scheduled runs included
         </Mono>
       </div>
+      <RowsTrend runs={runs} />
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-table)" }}>
         <thead>
           <tr style={{ color: "var(--pf-tsec)", textAlign: "left" }}>
-            {["When", "Source / entity", "Trigger", "State", "Bronze", "Silver", "Δ rows", "SLA"].map((h) => (
+            {["When", "Source / entity", "Trigger", "State", "Bronze", "Silver", "Δ rows", "SLA", ""].map((h) => (
               <th key={h} style={{ padding: "7px 12px", borderBottom: "1px solid var(--pf-bd)" }}>{h}</th>
             ))}
           </tr>
@@ -325,10 +328,51 @@ function IngestionPanel() {
               <td style={{ padding: "6px 12px" }}>
                 {r.sla_breach === null ? <span style={{ color: "var(--pf-tmut)" }}>—</span> : r.sla_breach ? <span style={{ color: "var(--pf-bad)", fontWeight: 600 }}>BREACH</span> : <span style={{ color: "var(--pf-ok)" }}>ok</span>}
               </td>
+              <td style={{ padding: "6px 12px" }}>
+                {r.source && <RunLink source={r.source} runId={r.run_id} />}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {firstSource && (
+        <div style={{ padding: "10px 14px", borderTop: "1px solid var(--pf-bd)" }}>
+          <DbxLinks source={firstSource} compact />
+        </div>
+      )}
     </Card>
+  );
+}
+
+/** Rows-loaded trend: one bar per run (oldest -> newest), colored by trigger.
+ *  Pure SVG — zero chart dependencies, glass-friendly. */
+function RowsTrend({ runs }: { runs: IngestionRun[] }) {
+  const pts = [...runs].reverse().slice(-16);
+  const max = Math.max(...pts.map((r) => r.bronze_count ?? 0), 1);
+  const W = 640, H = 92, pad = 8;
+  const bw = Math.min(34, (W - pad * 2) / pts.length - 6);
+  return (
+    <div style={{ padding: "12px 14px 4px", borderBottom: "1px solid var(--pf-bd)" }}>
+      <div style={{ fontSize: "var(--fs-micro)", color: "var(--pf-tmut)", marginBottom: 4 }}>
+        rows in bronze per run (last {pts.length}) — blue = build, green = scheduled/manual
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: 720, height: H }}>
+        {pts.map((r, i) => {
+          const h = Math.max(3, ((r.bronze_count ?? 0) / max) * (H - 30));
+          const x = pad + i * ((W - pad * 2) / pts.length);
+          const color = r.trigger_type === "build" ? "var(--pf-acc)" : "var(--pf-ok)";
+          return (
+            <g key={r.run_id + i}>
+              <rect x={x} y={H - 18 - h} width={bw} height={h} rx={3} fill={color} opacity={r.state === "succeeded" ? 0.85 : 0.3}>
+                <title>{`${r.started_at?.slice(0, 16)} · ${r.trigger_type} · bronze ${r.bronze_count}`}</title>
+              </rect>
+              <text x={x + bw / 2} y={H - 22 - h} textAnchor="middle" fontSize="9" fill="var(--pf-tsec)">
+                {r.bronze_count ?? ""}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }

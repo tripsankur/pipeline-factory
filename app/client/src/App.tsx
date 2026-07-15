@@ -212,9 +212,14 @@ export default function App() {
         </aside>
 
         <main key={page} className="pf-page" style={{ flex: 1, overflow: "auto", padding: 28 }}>
-          <h1 style={{ fontSize: 15.5, margin: "0 0 18px" }}>
-            {[...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page.replaceAll("_", " ")}
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", margin: "0 0 18px" }}>
+            <h1 style={{ fontSize: 15.5, margin: 0 }}>
+              {[...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page.replaceAll("_", " ")}
+            </h1>
+            <div style={{ marginLeft: "auto" }}>
+              <UserChip />
+            </div>
+          </div>
 
           {page === "fleet" && <Fleet onOpenSpec={(id) => openSpec(id, "mapping")} />}
           {page === "intake" && <Intake onSpecCreated={(id) => openSpec(id, "mapping")} />}
@@ -300,5 +305,35 @@ function ComingSoon({ id }: { id: string }) {
           ))}
       </Card>
     </div>
+  );
+}
+
+
+function UserChip() {
+  const q = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      const r = await fetch("/api/me");
+      if (!r.ok) throw new Error(await r.text());
+      return (await r.json()) as { email: string; workspace_url: string };
+    },
+    staleTime: Infinity,
+  });
+  if (!q.data) return null;
+  const initials = q.data.email.slice(0, 2).toUpperCase();
+  return (
+    <span className="pf-userchip" title={`Signed in as ${q.data.email}`}>
+      <span className="pf-avatar">{initials}</span>
+      {q.data.email}
+      <a
+        href={q.data.workspace_url}
+        target="_blank"
+        rel="noreferrer"
+        title="Open the Databricks workspace"
+        style={{ color: "var(--pf-acc)", textDecoration: "none", fontWeight: 600 }}
+      >
+        workspace {"↗"}
+      </a>
+    </span>
   );
 }

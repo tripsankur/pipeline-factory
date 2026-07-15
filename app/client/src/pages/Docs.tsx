@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card, Mono } from "../components/ui";
 import { Mermaid } from "../components/Mermaid";
+import archSvg from "../assets/architecture.svg";
 import { ARCH_DIAGRAMS } from "../lib/architecture-diagrams";
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -318,7 +319,18 @@ tables:
             <Mono>docs/ARCHITECTURE_DIAGRAMS.md</Mono> (authoritative, rendered on GitHub) and mirrored
             in Lucid for visual editing — what you see below renders live from the same sources.
           </p>
-          {ARCH_DIAGRAMS.map((d) => (
+          <figure style={{ margin: "0 0 18px" }}>
+            <figcaption style={{ fontWeight: 600, fontSize: "var(--fs-small)", marginBottom: 6 }}>
+              Solution architecture (L1) — zones, gates and the numbered request flow
+            </figcaption>
+            <a href={archSvg} target="_blank" rel="noreferrer">
+              <img src={archSvg} alt="Pipeline Factory solution architecture" style={{ width: "100%", borderRadius: "var(--rad-lg)", border: "1px solid var(--pf-bd)", background: "#fff" }} />
+            </a>
+            <div style={{ color: "var(--pf-tsec)", fontSize: "var(--fs-micro)", marginTop: 6 }}>
+              click to open full-size · C4 component-level views below
+            </div>
+          </figure>
+          {ARCH_DIAGRAMS.filter((d) => d.id !== "l1").map((d) => (
             <Mermaid key={d.id} title={d.title} caption={d.caption} code={d.code} />
           ))}
         </Section>

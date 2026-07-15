@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { Card, Mono, StatusPill } from "../components/ui";
 import { SpecPicker } from "../components/SpecPicker";
+import { DbxLinks } from "../components/DbxLinks";
 import Artifacts from "./Artifacts";
 
 export default function Evidence({ specId }: { specId: string | null }) {
@@ -84,6 +85,8 @@ export default function Evidence({ specId }: { specId: string | null }) {
           </span>
         )}
       </Card>
+
+      <DbxLinks source={d.spec.source.system} />
 
       {/* recon cards */}
       <div style={{ display: "flex", gap: 12 }}>
