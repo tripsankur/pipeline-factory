@@ -110,25 +110,79 @@ def count(instance: str, token: str) -> int:
 
 
 def wipe(instance: str, token: str) -> None:
-    q = urllib.parse.quote("SELECT Id FROM Account WHERE Name LIKE 'PF Demo%' LIMIT 200")
-    while True:
-        res = sf(instance, token, "GET", f"/query?q={q}")
-        ids = [r["Id"] for r in res.get("records", [])]
-        if not ids:
-            break
-        sf(instance, token, "DELETE", f"/composite/sobjects?ids={','.join(ids)}&allOrNone=false")
-        print(f"deleted {len(ids)}")
-    print("all PF Demo accounts removed")
+    for soql, label in [
+        ("SELECT Id FROM Account WHERE Name LIKE 'PF Demo%' LIMIT 200", "accounts"),
+        ("SELECT Id FROM Lead WHERE LastName LIKE 'PF Demo%' LIMIT 200", "leads"),
+        ("SELECT Id FROM Contact WHERE LastName LIKE 'PF Demo%' LIMIT 200", "contacts"),
+    ]:
+        q = urllib.parse.quote(soql)
+        while True:
+            res = sf(instance, token, "GET", f"/query?q={q}")
+            ids = [r["Id"] for r in res.get("records", [])]
+            if not ids:
+                break
+            sf(instance, token, "DELETE", f"/composite/sobjects?ids={','.join(ids)}&allOrNone=false")
+            print(f"deleted {len(ids)} {label}")
+    print("all PF Demo records removed (accounts, contacts, leads)")
+
+
+def create_contacts(instance, token, n, tag):
+    """Contacts attached to PF Demo accounts (needed for the contact entity build)."""
+    q = urllib.parse.quote("SELECT Id FROM Account WHERE Name LIKE 'PF Demo%' LIMIT 50")
+    accts = [r["Id"] for r in sf(instance, token, "GET", f"/query?q={q}").get("records", [])]
+    if not accts:
+        print("no PF Demo accounts — run seed first")
+        sys.exit(1)
+    records = [
+        {
+            "attributes": {"type": "Contact", "referenceId": f"c{i}"},
+            "AccountId": accts[i % len(accts)],
+            "FirstName": f"Demo{i + 1:02d}",
+            "LastName": f"PF Demo {tag} {i + 1:03d}",
+            "Email": f"pf.demo.{tag.lower()}.{i + 1}@example.com",
+        }
+        for i in range(n)
+    ]
+    res = sf(instance, token, "POST", "/composite/tree/Contact", {"records": records})
+    if res.get("hasErrors"):
+        print(f"partial failure: {json.dumps(res)[:400]}")
+        sys.exit(1)
+    print(f"created {n} contacts (tag: {tag})")
+
+
+def create_leads(instance, token, n, tag):
+    records = [
+        {
+            "attributes": {"type": "Lead", "referenceId": f"l{i}"},
+            "FirstName": f"Lead{i + 1:02d}",
+            "LastName": f"PF Demo {tag} {i + 1:03d}",
+            "Company": f"PF Demo {random.choice(INDUSTRIES)} Co {i + 1:02d}",
+            "Status": "Open - Not Contacted",
+            "Email": f"pf.lead.{tag.lower()}.{i + 1}@example.com",
+        }
+        for i in range(n)
+    ]
+    res = sf(instance, token, "POST", "/composite/tree/Lead", {"records": records})
+    if res.get("hasErrors"):
+        print(f"partial failure: {json.dumps(res)[:400]}")
+        sys.exit(1)
+    print(f"created {n} leads (tag: {tag})")
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("action", choices=["seed", "batch", "count", "wipe"])
+    p.add_argument("action", choices=["seed", "batch", "count", "wipe", "seed-contacts", "seed-leads"])
     p.add_argument("--count", type=int, default=25, dest="n")
     p.add_argument("--tag", default="")
     args = p.parse_args()
 
     instance, token = login()
+    if args.action == "seed-contacts":
+        create_contacts(instance, token, args.n if args.n != 25 else 15, args.tag or "Seed")
+        return
+    if args.action == "seed-leads":
+        create_leads(instance, token, args.n if args.n != 25 else 20, args.tag or "Seed")
+        return
     if args.action == "count":
         print(f"PF Demo accounts in org: {count(instance, token)}")
     elif args.action == "wipe":

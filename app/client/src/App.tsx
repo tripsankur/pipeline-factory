@@ -110,7 +110,11 @@ export default function App() {
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
         <header className="pf-ribbon">
           <div className="pf-ribbon-brand">
-            <div className="pf-ribbon-logo">PF</div>
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-label="Pipeline Factory">
+              <rect width="26" height="26" rx="6" fill="#2272B4"/>
+              <path d="M6 8.5h14M6 13h10M6 17.5h14" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+              <circle cx="20" cy="13" r="2.6" fill="#FCA311"/>
+            </svg>
             <span style={{ fontWeight: 600 }}>Pipeline Factory</span>
             <span className="pf-ribbon-crumb">/ {BUILDER_PAGES.includes(page) ? "Pipeline builder" : ([...MAIN_NAV, ...LOCKED_NAV].find((n) => n.id === page)?.label ?? page)}</span>
           </div>

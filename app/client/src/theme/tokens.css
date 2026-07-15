@@ -43,8 +43,8 @@
   --pf-bad-soft: #fde2e8;      /* red200 */
 
   /* DuBois product UI uses the native system stack — no webfont */
-  --pf-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --pf-font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --pf-font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
     Menlo, monospace;
 
@@ -214,6 +214,24 @@ body {
   stroke-dasharray: 7 7;
   animation: pf_dashflow 0.9s linear infinite;
 }
+
+/* ---- shadcn-inspired control polish ---- */
+.pf-btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--pf-acc);
+  outline-offset: 2px;
+}
+input, select, textarea {
+  font-family: var(--pf-font-sans);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--pf-acc) !important;
+  box-shadow: 0 0 0 3px var(--pf-acc-soft);
+  outline: none;
+}
+.pf-btn { box-shadow: 0 1px 2px rgba(17, 23, 28, 0.06); }
+.pf-btn:hover:not(:disabled) { filter: brightness(1.05); }
+h1, h2, h3 { letter-spacing: -0.01em; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {

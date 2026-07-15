@@ -112,3 +112,40 @@ tables:
         type: datetime
         nullable: false
         description: Record creation timestamp
+
+  - name: lead
+    source_object: Lead
+    description: Salesforce Lead object — demo table picked live from the org
+    primary_key: [Id]
+    columns:
+      - name: Id
+        type: id
+        nullable: false
+        description: Salesforce record id
+      - name: FirstName
+        type: string
+        nullable: true
+        description: First name
+        pii: true
+      - name: LastName
+        type: string
+        nullable: false
+        description: Last name
+        pii: true
+      - name: Company
+        type: string
+        nullable: false
+        description: Company name
+      - name: Status
+        type: picklist
+        nullable: true
+        description: Lead status
+      - name: Email
+        type: email
+        nullable: true
+        description: Email address
+        pii: true
+      - name: CreatedDate
+        type: datetime
+        nullable: false
+        description: Record creation timestamp

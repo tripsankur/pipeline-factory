@@ -269,6 +269,22 @@ export default function Intake({ onSpecCreated }: { onSpecCreated: (specId: stri
               ))}
             </tbody>
           </table>
+          {structured.tables[0] && (
+            <PromptPanel
+              contract={{
+                entity: structured.tables[0].entity,
+                columns: structured.tables[0].columns,
+                narrative: structured.tables[0].narrative,
+                sourceKind: structured.tables[0].sourceKind,
+              }}
+              form={{
+                sourceSystem: structured.tables[0].suggested.sourceSystem,
+                targetSystem: structured.tables[0].suggested.targetSystem,
+                sourceEntity: structured.tables[0].suggested.sourceEntity,
+                targetEntity: structured.tables[0].suggested.targetEntity,
+              }}
+            />
+          )}
         </Card>
       )}
 
